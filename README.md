@@ -13,3 +13,14 @@ A simplified CRUD front-end with built in visualization features.
 ## Database setup
 
 - Each *company* or *account* gets their own database name
+- Each table always has a history counterpart
+- Each table requires:
+  1. first column must be named _UID, be an INT, auto increment, be a primary key,  and have the comment ` {"column_format": "hidden"}` 
+- Each history table requires:
+  1. same name as data table counterpart, but with appended '_history'
+  2. same columns as data table counterpart
+  3. additional columns:
+    - _UID_fk: int(11), index, foreign key with _UID on data table counterpart and have the comment ` {"column_format": "hidden"}`
+    - User:  varchar(128), not null
+    - Timestamp: timestamp, default CURRENT_TIMESTAMP
+    - Action: varchar(128), not null

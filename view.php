@@ -1,23 +1,8 @@
 <div class="container">
 
-<script>
-$(document).ready(function() {
-    $('#example').DataTable( {
-        "processing": true,
-        "serverSide": true,
-        "ajax": "scripts/server_processing.php"
-    } );
-} );
-</script>
+    <?php require_once "functions.php"; ?>
+    <?php build_table( get_db_setup(), $_GET['table'] ) ?>
 
-
-    <table id="example" class="table" cellspacing="0" width="100%">
-        <thead>
-            <tr>
-                <th>_UID</th>
-                <th>asdf</th>
-            </tr>
-        </thead>
-    </table>
+    <?php //get_db_setup()->show(); ?>
 
 </div>

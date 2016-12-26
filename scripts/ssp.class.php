@@ -229,6 +229,7 @@ class SSP {
             "recordsTotal"    => intval( $recordsTotal ),
             "recordsFiltered" => intval( $recordsFiltered ),
             "data"            => self::data_output( $columns, $data ),
+            'log' => array($request, $db, $table, $primaryKey, $columns)
         );
     }
 

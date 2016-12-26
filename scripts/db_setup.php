@@ -27,7 +27,7 @@ class Database {
     protected $name = null; // DB name e.g. db215537_EL
     protected $company = null; // company associated with logged in user
 
-    public function __construct( $comp=null, $db) {
+    public function __construct( $comp=null, $db ) {
 
         if ($comp) {
 
@@ -212,7 +212,7 @@ class Table {
 
         // get details of each field
         foreach ($this->fields as $field) {
-            $this->struct[$field] = new Field($this->name, $field, $fks, $info);
+            $this->struct[$field] = new Field($this->name, $field, $fks, $info, $db);
         }
      }
 
@@ -256,7 +256,7 @@ class Table {
 
     // return array of hidden fields in table
     public function get_hidden_fields() {
-        return array_diff($this->get_fields(), $this->get_visible_fields());
+        return array_values(array_diff($this->get_fields(), $this->get_visible_fields()));
     }
 
     // return table struct as assoc array
@@ -370,7 +370,7 @@ class Field {
     protected $comment;
     protected $length;
 
-    public function __construct($table, $name, $fks, $info) {
+    public function __construct($table, $name, $fks, $info, $db) {
         $this->name = $name;
         $this->type = $info[$name]["Type"];
         $this->key = $info[$name]["Key"];
@@ -502,10 +502,10 @@ class Field {
     public function get_unique_vals() {
         if ( $this->is_unique() ) {
             $sql = sprintf("SELECT DISTINCT(`%s`) FROM %s.%s", $this->get_name(), DB_NAME_EL, $this->get_table());
-            $result = exec_query($sql);
+            $result = $db->query($sql)->fetchAll();
             $vals = array();
-            if ($result->num_rows) {
-                while ($row = $result->fetch_assoc()) {
+            if ($result) {
+                foreach($result as $row) {
                     $vals[] = $row[$this->name];
                 }
                 return $vals;
@@ -532,9 +532,9 @@ class Field {
             $ref_table = $ref[0];
             $ref_field = $ref[1];
             $sql = sprintf( "SELECT DISTINCT(%s) from %s.%s ORDER BY %s", $ref_field, DB_NAME_EL, $ref_table, $ref_field );
-            $res = exec_query($sql);
+            $res = $db->query($sql)->fetchAll();
             $vals = array();
-            while ($row = $res->fetch_assoc()) {
+            foreach ($res as $row) {
                 $vals[] = $row[$ref_field];
             }
             if ( count( $vals ) > 0 ) {
