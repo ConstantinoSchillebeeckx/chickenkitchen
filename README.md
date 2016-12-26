@@ -8,3 +8,8 @@ A simplified CRUD front-end with built in visualization features.
 - [datatables.net](https://datatables.net/)
 - [Bootstrap 3](https://getbootstrap.com/css/)
 - [jQuery](https://code.jquery.com/)
+
+
+## Database setup
+
+- Each *company* or *account* gets their own database name

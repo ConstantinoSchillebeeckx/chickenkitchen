@@ -3,8 +3,6 @@
 /** 
  *
  * Initialize a new database connection using the Medoo framework.
- * Function assumes the DB parameters have been loaded, these are
- * stored in var/db.php.
  *
  * @param void
  * 
@@ -13,8 +11,12 @@
 */
 
 function init_db() {
+    
+    require_once "config/db.php"; // load DB variables
+    require_once "Medoo/medoo.php"; // SQL library
+    require_once "scripts/db_setup.php"; // DB setup class
 
-    // Initialize
+    // Initialize connection
     $db = new medoo([
         'database_type' => 'mysql',
         'database_name' => DB_NAME,
@@ -23,6 +25,9 @@ function init_db() {
         'password' => DB_PASS,
         'charset' => utf8mb4_general_ci
     ]);
+
+    // Get setup
+    $db->setup = new Database( ACCT, $db );
 
     return $db;
 }

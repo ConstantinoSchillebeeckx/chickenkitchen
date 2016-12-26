@@ -18,9 +18,4 @@
 
     </head>
 
-    <?php require_once 'Medoo/medoo.php'; ?>
-    <?php require_once "var/db.php"; // DB variables ?>
-    <?php require_once "functions.php"; ?>
 
-
-    <?php $db = init_db(); ?>
