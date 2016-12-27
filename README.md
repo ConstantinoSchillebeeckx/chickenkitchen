@@ -8,6 +8,18 @@ A simplified CRUD front-end with built in visualization features.
 - [datatables.net](https://datatables.net/)
 - [Bootstrap 3](https://getbootstrap.com/css/)
 - [jQuery](https://code.jquery.com/)
+- [jQUery QueryBuilder](http://querybuilder.js.org/)
+
+
+## TODO
+- [ ] create new table
+- [ ] edit item in table
+- [ ] delete item in table
+- [ ] revert history
+- [ ] delete table
+- [ ] edit table (fields, name)
+- [ ] batch (insert, delete, edit)
+- [ ] advanced searching (http://querybuilder.js.org/)
 
 
 ## Database setup
