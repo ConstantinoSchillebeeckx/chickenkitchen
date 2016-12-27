@@ -65,18 +65,20 @@ function get_db_setup() {
 /**
  * Generate HTML for viewing a table
  *
- * @param $db DB class object
  * @param $table str database table to view
  *
  * @return will echo proper HTML
 
 */
-function build_table($db, $table) {
+function build_table( $table ) {
 
+    $db = get_DB_setup();
+    $pk = $db->get_pk($table);
     $table_class = $db->get_table($table);
-    
+    $pk = '_UID';
+   
     // generate table HTML
-    if ( isset( $db ) && isset( $table ) ) {
+    if ( isset( $db ) && isset( $table ) && $table_class ) {
   
         $fields = $db->get_fields($table); 
         $hidden = $table_class->get_hidden_fields();
@@ -100,15 +102,14 @@ function build_table($db, $table) {
             var columns = <?php echo json_encode( $fields ); ?>;
             var filter = <?php echo json_encode( $filter ); ?>;
             var hidden = <?php echo json_encode( $hidden ); ?>;
-            getDBdata(table, columns, filter, hidden);
+            var pk = <?php echo json_encode( $pk ); ?>;
+            getDBdata(table, pk, columns, filter, hidden);
         </script>
 
     <?php } else {
         echo 'Table doesn\'t exist; list of available tables are: ' . implode(', ', $db->get_tables());
     }
 
-    // must be included after table vars are defined
-    include_once("modals.php");
 }
 
 
@@ -135,6 +136,7 @@ function build_table($db, $table) {
  * @return will echo all proper HTML to be placed in form
 */
 function get_form_table_row($table) {
+
     $db = get_db_setup();
     $table_class = $db->get_table($table);
     $fields = $table_class->get_fields();

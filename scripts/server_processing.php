@@ -5,6 +5,7 @@
  *
  * @param _GET['table'] str - table name to query
  * @param _GET['cols'] arr - array of column names in table
+ * @param _GET['pk'] arr - name of field in DB that is primary key
  *
  * @return datatables formatted data
 */
@@ -19,8 +20,7 @@ if ( isset($_GET['table'] ) ) {
     // DB table to use
     $table = $_GET['table'];
      
-    // Table assumed to have _UID primary key
-    $primaryKey = '_UID';
+    $primaryKey = $_GET['pk'];
      
     // Array of database columns which should be read and sent back to DataTables.
     // The `db` parameter represents the column name in the database, while the `dt`

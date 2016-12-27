@@ -7,6 +7,10 @@
 
 /* Database class for loading structure of the database
 
+The idea is that the general structure of the database be
+loaded in a variable once so that it can be referenced
+quickly when doing various actions.
+
 Once a user logs in, the general structure of the database
 associated with the company of that user is loaded.
 
@@ -221,19 +225,9 @@ class Table {
         return $this->name;
     }
 
-    // return safe name (without company or DB)
-    public function get_safe_name() {
-        return explode("_", $this->get_name())[1];
-    }
-
     // return full name (with DB prepended)
     public function get_full_name() {
         return DB_NAME_EL . '.' . $this->get_name();
-    }
-
-    // return full name (with DB prepended)
-    public function get_full_name_history() {
-        return DB_NAME_EL_HISTORY . '.' . $this->get_name();
     }
 
     // return an array of non-hidden fields
@@ -308,6 +302,7 @@ class Table {
         }
         return false;
     }
+
 
     // return an array of fields that have
     // the unique property in the table

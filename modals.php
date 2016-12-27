@@ -9,29 +9,22 @@
       <div class="modal-body">
 
         <?php // generate table HTML
-        if ( isset( $db ) && isset( $table ) ) {
-       
-            $table .= '_history'; 
+        if ( isset( $_GET['table'] ) ) {
+     
+            $db =  get_db_setup();
+ 
+            // update table name and data
+            $table = $_GET['table'] . '_history'; 
             $fields_hist = $db->get_fields($table); 
             $table_class = $db->get_table($table);
-            $hidden_hist = array_values($table_class->get_hidden_fields());
+            $hidden_hist = $table_class->get_hidden_fields();
             ?>
             
             <table class="table table-bordered table-hover table-responsive" id="historyTable" width="100%">
             <thead>
             <tr class="info">
 
-            <?php foreach ( $fields_hist as $field ) {
-                if ($field == '_timestamp') {
-                    echo "<th>Timestamp</th>";
-                } else if ($field == '_user') {
-                    echo "<th>User</th>";
-                } else if ($field == '_action') {
-                    echo "<th>Notes</th>";
-                } else {
-                    echo "<th>$field</th>"; 
-                }
-            } ?>
+            <?php foreach ( $fields_hist as $field ) { echo "<th>$field</th>"; } ?>
 
             <th>Revert</th>
             </tr>
@@ -40,7 +33,6 @@
 
             <script type="text/javascript">
                 var columnHist = <?php echo json_encode( $fields_hist ); ?>;
-                var pk = <?php echo json_encode( $db->get_pk( $table ) ); ?>;
                 var hiddenHist = <?php echo json_encode( $hidden_hist ); ?>;
                 table += '_history'; // assumes history table has appended '_history'
                 // table gets filled once the history button is clicked
@@ -67,7 +59,7 @@
             <form class="form-horizontal" onsubmit="return false;" id="editItemForm">
                 <div class="modal-body">
                     <p class="lead">Editing the item <span id="editID"></span></p>
-                    <?php get_form_table_row($table); // vars defined by build_table() in functions.php ?>
+                    <?php get_form_table_row($_GET['table']); ?>
                 </div>
                 <div class="modal-footer">
                     <a href="#" class="btn" data-dismiss="modal">Cancel</a>
@@ -122,28 +114,6 @@
 
 
 
-<!-- add item modal -->
-<div class="modal fade" id="addItemModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content panel-primary">
-            <div class="modal-header panel-heading">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title"><i class="fa fa-plus" aria-hidden="true"></i> Add item</h4>
-            </div>
-            <form class="form-horizontal" onsubmit="addItem()" id="addItemForm">
-                <div class="modal-body">
-                        <?php get_form_table_row($table); // vars defined by build_table() in EL.php ?>
-                </div>
-                <div class="modal-footer">
-                    <a href="#" class="btn" data-dismiss="modal">Cancel</a>
-                    <button type="submit" class="btn btn-primary" id="confirmAddItem">Add item</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-
 
 <!-- delete table modal -->
 <div class="modal fade" id="deleteTableModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
@@ -163,4 +133,27 @@
       </div>
     </div>
   </div>
+</div>
+
+
+
+<!-- add item modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content panel-primary">
+            <div class="modal-header panel-heading">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title"><i class="fa fa-plus" aria-hidden="true"></i> Add item</h4>
+            </div>
+            <form class="form-horizontal" onsubmit="addItem()" id="addItemForm">
+                <div class="modal-body">
+                        <?php get_form_table_row($_GET['table']); ?>
+                </div>
+                <div class="modal-footer">
+                    <a href="#" class="btn" data-dismiss="modal">Cancel</a>
+                    <button type="submit" class="btn btn-primary" id="confirmAddItem">Add item</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>

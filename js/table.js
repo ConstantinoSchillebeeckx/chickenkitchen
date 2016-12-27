@@ -19,7 +19,7 @@ Parameters (set by build_table()):
 */
 
 
-function getDBdata(table, columns, filter, hidden, tableID) {
+function getDBdata(table, pk, columns, filter, hidden, tableID) {
 
     if (!tableID || tableID == null) tableID = '#datatable';
 
@@ -45,6 +45,7 @@ function getDBdata(table, columns, filter, hidden, tableID) {
         "table": table, 
         "cols": columns,
         "filter": filter,
+        "pk" : pk
     }
 
     // set Action column data to empty since we are automatically adding buttons here
@@ -194,7 +195,7 @@ function historyModal(sel) {
 
     // fill table with data
     // vars are defined in modal.php
-    getDBdata(table, columnHist, {'_UID_fk': uidVal}, hiddenHist, '#historyTable');
+    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable');
 }
 
 
@@ -265,5 +266,292 @@ function historyModal(sel) {
 
     // fill table with data
     // vars are defined in modal.php
-    getDBdata(table, columnHist, {'_UID_fk': uidVal}, hiddenHist, '#historyTable');
+    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable');
 }
+
+
+
+/* Function called when add row button history clicked
+*/
+function addItemModal() {
+    jQuery('#addItemModal').modal('toggle'); // show modal
+}
+
+
+/* Called on click of download button
+Will save current viewed table as CSV file
+with the proper columns removed (e.g. Action).
+File name will be name of table.
+see: https://github.com/ZachWick/TableCSVExport
+Parameters:
+-----------
+- tableName : str
+              table name being saved to CSV
+*/
+function downloadCSV(tableName) {
+
+    // get column headers and specify which to hide
+    var tableHead = jQuery('#datatable').DataTable().table().header();
+    var cols = jQuery(tableHead).find('tr').children();
+    var allCols = [];
+    var saveCols = []; // these are the columns that are exported
+    var ignoreCols = ['Action'];
+    jQuery.each( cols, function(i, val) { 
+        var col = jQuery(val).text();
+        allCols.push(col);
+        if ( jQuery.inArray(col, ignoreCols) == -1) saveCols.push(col);
+    } )
+
+
+    event.preventDefault();
+    jQuery('#datatable').TableCSVExport({
+        delivery: 'download',
+        filename: tableName + '.csv',
+        header: allCols,
+        columns: saveCols
+    });
+
+}
+
+
+/* Called when delete table button clicked
+Cancels form submission and pulls up the
+delete table modal
+*/
+function deleteTableModal(tableName) {
+
+    event.preventDefault(); // cancel form submission
+
+    jQuery("#deleteTableID").html( "<code>" + tableName + "</code>" ); // set PK message
+    jQuery("#confirmDeleteTable").attr("onclick", "deleteTable('" + tableName + "')");
+
+    jQuery('#deleteTableModal').modal('toggle'); // show modal
+
+}
+
+
+
+/* Function called by "Add field" button on add table template page
+Will add all the necessarry GUI fields for defining a given field
+*/
+var fieldNum = 0;
+function addField() {
+    fieldNum += 1;
+            //'<button type="button" class="close" data-target="#field-' + fieldNum + '" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>',
+    var dom = ['<div class="panel panel-default" style="margin-bottom:20px;" id="field-' + fieldNum + '">',
+            '<div class="panel-heading">',
+            '<span class="panel-title">Field #' + fieldNum + '</span>',
+            '<button type="button" onclick="fieldNum-=1;" class="close" data-dismiss="alert" data-target="#field-' + fieldNum + '"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>',
+            '</div>',
+            '<div class="panel-body">',
+            '<div class="form-group">',
+            '<label class="col-sm-2 control-label" id="fieldLabel">Field name*</label>',
+            '<div class="col-sm-3">',
+            '<input type="text" class="form-control" name="name-' + fieldNum + '" required pattern="[a-zA-Z0-9 ]+" title="Letters, numbers and spaces only">',
+            '</div>',
+            '<label class="col-sm-1 control-label">Type</label>',
+            '<div class="col-sm-2">',
+            '<select class="form-control" onChange="selectChange(' + fieldNum + ')" id="type-' + fieldNum + '" name="type-' + fieldNum + '" required>',
+            '<option value="" disabled selected style="display:none;"></option>',
+            '<option value="varchar">String</option>',
+            '<option value="int">Integer</option>',
+            '<option value="float">Float</option>',
+            '<option value="date">Date</option>',
+            '<option value="datetime">Date & Time</option>',
+            '<option value="fk">Foreign</option>',
+            '</select>',
+            '</div>',
+            '</div>',
+            '<div class="form-group">',
+            '<label class="col-sm-2 control-label" id="fieldLabel">Default value</label>',
+            '<div class="col-sm-3">',
+            '<input type="text" class="form-control" name="default-' + fieldNum + '" pattern="[a-zA-Z0-9 ]+" title="Letters, numbers and spaces only">',
+            '</div>',
+            '<div class="col-sm-offset-1 col-sm-6" id="hiddenType-' + fieldNum + '">',
+            '</div>',
+            '</div>',
+            '<div class="form-group">',
+            '<label class="col-sm-2 control-label">Required</label>',
+            '<div class="col-sm-3">',
+            '<label class="checkbox-inline">',
+            '<input type="checkbox" name="required-' + fieldNum + '"> check if field is required',
+            '</label>',
+            '</div>',
+            '<label class="col-sm-1 control-label">Unique</label>',
+            '<div class="col-sm-3">',
+            '<label class="checkbox-inline">',
+            '<input type="checkbox" name="unique-' + fieldNum + '"> check if field is unique',
+            '</label>',
+            '</div>',
+            '</div>',
+            '</div>',
+            '</div>']
+    jQuery("form").append(dom.join('\n'));
+}
+
+
+
+
+
+
+/* Function called when "Create table" button is clicked
+*/
+function addTable() {
+    
+    event.preventDefault(); // cancel form submission
+    jQuery('#submit_handle').click(); // needed to validate form
+
+    if (jQuery('form')[0].checkValidity()) { // if valid, load
+        var data = {
+                "action": "addTable", 
+                "dat": getFormData('form'), // form values
+                "field_num": fieldNum // number of fields
+        }
+        console.log(data);
+
+
+
+        // ensure table doesn't exist
+        // global var db is set in the add_table WP template
+        // NOTE: protected attributes will have a prepended '*' in the key, see:
+        // https://ocramius.github.io/blog/fast-php-object-to-array-conversion/
+        for (var i in db['tables']) {
+            var table = db['tables'][i];
+            var table_safe = table.split('_')[1];
+            if (table_safe.toLowerCase() == jQuery('[name="table_name"').val().toLowerCase()) {
+                showMsg({'msg':'Table name <code>' + table_safe + '</code> already exists, please choose another.', 'status':false, 'hide': false});
+                return;
+            }
+        }
+
+        var names = [];
+        for (var i = 1; i <= data.field_num; i++ ) {
+
+            // sensure field names are unique
+            var field = 'name-' + i;
+            var name = data.dat[field];
+            if (names.indexOf(name) > -1) { // name not unique
+                showMsg({'msg':'All column names must be unique, <code>' + name + '</code> given multiple times.', 'status':false, 'hide': false});
+                return;
+            }        
+            names.push(name);
+
+            // check that default value matches with field type
+            var defaultVal = data.dat['default-' + i];
+            if (defaultVal) {
+                var type = data.dat['type-' + i];
+                if ( type == 'float' && !(isFloat(defaultVal) || isInt(defaultVal)) ) {
+                    showMsg({'msg':'If specifying a float type for the column <code>' + name + '</code>, please ensure the default value is a float value.', 'status':false, 'hide': false});
+                    return;
+                } else if ( type == 'int' && !isInt(defaultVal) ) {
+                    showMsg({'msg':'If specifying an integer type for the column <code>' + name + '</code>, please ensure the default value is an integer.', 'status':false, 'hide': false});
+                    return;
+                }
+            }
+        }
+
+     
+        // send data to server
+        doAJAX(data, function() {
+            if (ajaxStatus) {
+                addTableToNav(jQuery('[name="table_name"').val());
+                showMsg(ajaxResponse);
+                // should update js var DB here ...
+            } else {
+                showMsg({"msg":"There was an error creating the table, please try again.", "status": false, 'hide': false});
+                console.log(ajaxReponse);
+            }
+        });
+    }
+
+}
+
+
+
+
+// hide/show divs based on what user selects for field type
+function selectChange(id){
+    var val = jQuery("#type-" + id).val()
+
+    // reset input fields that were automatically set in case of FK
+    jQuery("[name^=default-]").prop('disabled',false)
+    jQuery("[name^=unique-]").prop('disabled',false)
+
+    var hidden = jQuery("#hiddenType-" + id);
+    if (val == 'fk') {
+        var html = '<p>Text for foreign key</p>';
+        html += getFKchoices(id);
+        hidden.html(html);
+
+        // a FK cannot have a default nor can it be unique
+        jQuery("[name^=default-]").prop('disabled',true)
+        jQuery("[name^=unique-]").prop('disabled',true)
+        jQuery("[name^=unique-]").prop('checked',false)
+
+    } else if (val == 'date') {
+        html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
+        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="currentDate-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
+        hidden.html(html);
+    } else if (val == 'varchar') {
+        hidden.html('<p>A string field can be contain letters, numbers and various other characters such as commas or dashes.</p>');
+    } else if (val == 'int') {
+        hidden.html('<p>An integer field can only contain whole numbers such as <code>4321</code>.</p>');
+    } else if (val == 'float') {
+        hidden.html('<p>A float field can only contain numbers as well as a decimal point, for example <code>89.45</code></p>');
+    } else if (val == 'datetime') {
+        html = '<span>A date time field is used is used for values that contain both date and time parts, it is stored in the format <em>YYYY-MM-DD HH:MM:SS</em>, for example <code>2023-01-19 03:14:07</code></span><br>';
+        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="currentDate-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date & time at editing.</label>';
+        hidden.html(html);
+    }
+}
+
+
+
+/* Generate a dropdown of possible tables/fields for FK
+When setting up a table, a field can be chosen to be
+a foreign key; this will generate a drop down select
+filled with table name and field name from which to
+choose as a reference for the FK
+Parameters:
+-----------
+- id : int (optional)
+       if specified, select will get the name 'foreignKey-#',
+       otherwise name will be 'foreignKey'
+Returns:
+--------
+- full html for select
+*/
+function getFKchoices(id=null) {
+
+    // global var db is set in the add_table WP template
+    var struct = db['struct'];
+
+    var name = 'foreignKey';
+    if (id) {
+        name += '-' + id;
+    }
+
+    var html = '<select class="form-control" name="' + name + '" required>';
+    for (var i in db['tables']) {
+        var table = db['tables'][i];
+        var tableSafe = table.split('_')[1]; // remove company name
+        var tableStruct = struct[table];
+        var fieldStruct = tableStruct['struct'];
+        
+        for (var j in tableStruct['fields']) {
+            var field = tableStruct['fields'][j];
+            if ( fieldStruct[field]['hidden'] == false) {
+                var val = tableSafe + '.' + field;
+                var label = 'Table: ' + tableSafe + ' | Field: ' + field;
+            
+                html += '<option value="' + val + '">' + label + '</option>';
+            }
+        }
+
+    }
+    html += '</select>';
+
+    return html;
+
+}
+
