@@ -34,7 +34,7 @@
             <script type="text/javascript">
                 var columnHist = <?php echo json_encode( $fields_hist ); ?>;
                 var hiddenHist = <?php echo json_encode( $hidden_hist ); ?>;
-                table += '_history'; // assumes history table has appended '_history'
+                var tableHist = table + '_history'; // assumes history table has appended '_history'
                 // table gets filled once the history button is clicked
                 // this is done by historyModal()
             </script>

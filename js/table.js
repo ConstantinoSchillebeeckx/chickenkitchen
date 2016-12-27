@@ -52,27 +52,39 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "action": "viewTable", 
         "table": table, 
         "cols": columns,
+        "pk" : pk,
         "filter": filter,
-        "pk" : pk
+    }
+
+    // setup columnDefs
+    var colDefs = [];
+    for (var i = 0; i < columns.length; i++) {
+        colDefs[i] = {};
+
+        colDefs[i]['name'] = columns[i];
+        colDefs[i]['targets'] = i;
+
+        // hide any columns listed in hidden
+        // also make them non-searchable
+        if (hidden.length) { 
+            var idx = hidden.indexOf(columns[i]);
+            if (idx != -1) {
+                colDefs[i]['visible'] = false;
+                colDefs[i]['searchable'] = false;
+            }
+        }
     }
 
     // set Action column data to empty since we are automatically adding buttons here
-    var colDefs = [{ // https://datatables.net/examples/ajax/null_data_source.html
+    colDefs.push({ // https://datatables.net/examples/ajax/null_data_source.html
         "targets": -1,
+        "name": 'Action',
         "data": null,
         "defaultContent": buttonHTML,
         "width": colWidth,
         "orderable": false,
-    }];
+    });
 
-    // hide any columns listed in hidden
-    // also make them non-searchable
-    if (hidden.length) {
-        for (var i = 0; i < hidden.length; i++) {
-            var idx = columns.indexOf(hidden[i]);
-            colDefs.push({"targets": idx, "visible": false, "searchable": false })
-        }
-    }
 
     // crusty workaround for the issue: https://datatables.net/manual/tech-notes/3
     // first viewing the history modal will initialize the table, looking at the modal
@@ -82,7 +94,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         historyTable.destroy();
     }
 
-    console.log(tableID);
+    console.log(data);
 
     historyTable = jQuery(tableID).DataTable( {
         "retrieve": true,
@@ -204,7 +216,7 @@ function historyModal(sel) {
 
     // fill table with data
     // vars are defined in modal.php
-    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable', false);
+    getDBdata(tableHist, pkHist, columnHist, {'_UID_fk': uidVal}, hiddenHist, '#historyTable', false);
 }
 
 
@@ -249,34 +261,6 @@ function parseTableRow(rowIX) {
 
 
 
-
-/* Function called when action button history clicked
-
-Because none of the buttons have a specified ID, we
-need to use some jQuery to figure out which button
-was clicked and thus which row the user is trying
-to act on.  This function will figure out the ID
-of the first column item and update the modal with
-its value.  It will then display the modal.
-
-Parameters:
-- sel : will be the 'a' selection of the button that was clicked
-*/
-function historyModal(sel) {
-
-    // find first col value (PK) of row from button press
-    var rowNum = jQuery(sel).closest('tr').index();
-    var rowVals = jQuery('#datatable').DataTable().row(rowNum).data();
-    var uidVal = rowVals[0];
-    var itemVal = rowVals[1];
-
-    jQuery("#historyID").html( "<code>" + itemVal + "</code>" ); // set PK message
-    jQuery('#historyModal').modal('toggle'); // show modal
-
-    // fill table with data
-    // vars are defined in modal.php
-    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable', false);
-}
 
 
 

@@ -24,3 +24,4 @@
     </head>
 
 
+    <div class="container"> <!-- closed in footer -->

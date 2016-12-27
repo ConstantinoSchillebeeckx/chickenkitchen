@@ -143,8 +143,7 @@ class SSP {
 
                 $str = $requestColumn['search']['value'];
 
-                if ( $requestColumn['searchable'] == 'true' &&
-                 $str != '' ) {
+                if ( $requestColumn['searchable'] == 'true' && $str != '' ) {
                     $binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );
                     $columnSearch[] = "`".$column['db']."` LIKE ".$binding;
                 }
@@ -184,6 +183,7 @@ class SSP {
      *  @param  string $table SQL table to query
      *  @param  string $primaryKey Primary key of the table
      *  @param  array $columns Column information array
+     *  @param  array filter columns based on user click on cell [col name: filter]
      *  @return array          Server-side processing response array
      */
     static function simple ( $request, $db, $table, $primaryKey, $columns )
@@ -194,6 +194,7 @@ class SSP {
         $limit = self::limit( $request, $columns );
         $order = self::order( $request, $columns );
         $where = self::filter( $request, $columns, $bindings );
+
 
         // Main query to actually get the data
         $data = self::sql_exec( $db, $bindings,
@@ -229,7 +230,7 @@ class SSP {
             "recordsTotal"    => intval( $recordsTotal ),
             "recordsFiltered" => intval( $recordsFiltered ),
             "data"            => self::data_output( $columns, $data ),
-            'log' => array($request, $db, $table, $primaryKey, $columns)
+            "where" => $request
         );
     }
 
