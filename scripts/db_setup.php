@@ -165,6 +165,14 @@ class Database {
         echo '</pre>';
     }
 
+    // return true if table has
+    // history counterpart
+    // assumed to have appended _history
+    // to table name
+    public function has_history($table) {
+        return in_array($table . "_history", $this->get_tables());
+    }
+
     public function asJSON() {
         return json_encode(objectToArray($this)) . ';'; // ';' so that JS doesn't complain
     }
@@ -321,6 +329,7 @@ class Table {
             return false;
         }
     }
+
 
 
     // pretty print

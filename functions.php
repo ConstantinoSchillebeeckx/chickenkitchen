@@ -75,7 +75,7 @@ function build_table( $table ) {
     $db = get_DB_setup();
     $pk = $db->get_pk($table);
     $table_class = $db->get_table($table);
-    $pk = '_UID';
+    $has_history = $db->has_history($table);
    
     // generate table HTML
     if ( isset( $db ) && isset( $table ) && $table_class ) {
@@ -103,7 +103,8 @@ function build_table( $table ) {
             var filter = <?php echo json_encode( $filter ); ?>;
             var hidden = <?php echo json_encode( $hidden ); ?>;
             var pk = <?php echo json_encode( $pk ); ?>;
-            getDBdata(table, pk, columns, filter, hidden);
+            var hasHistory = <?php echo json_encode( $has_history ); ?>;
+            getDBdata(table, pk, columns, filter, hidden, null, hasHistory);
         </script>
 
     <?php } else {

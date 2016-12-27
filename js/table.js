@@ -15,18 +15,26 @@ Parameters (set by build_table()):
 - pk : primary key of table
 - filter : (optional) filter for table in format {col: val}
 - hidden : (optional) array of column names that should be hidden (e.g. UID)
-- tableID: the ID for the table into which to put data, defaults to #datatable
+- tableID: (optional) the ID for the table into which to put data, defaults to #datatable
+- hasHistory: (optional) bool if table has history counter part
 */
 
 
-function getDBdata(table, pk, columns, filter, hidden, tableID) {
+function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
+
+    var colWidth = '40px'; // column width for "Action" column
 
     if (!tableID || tableID == null) tableID = '#datatable';
 
     // html for Action button column
     if (tableID == '#datatable') {
         var buttonHTML = '<div class="btn-group" role="group">';
-        buttonHTML += '<button onclick="historyModal(this)" type="button" class="btn btn-info btn-xs" title="History"><i class="fa fa-history" aria-hidden="true"></i></button>'
+        if (hasHistory) {
+            buttonHTML += '<button onclick="historyModal(this)" type="button" class="btn btn-info btn-xs" title="History"><i class="fa fa-history" aria-hidden="true"></i></button>'
+            colWidth = '70px';
+        } else {
+            colWidth = '50px';
+        }
         buttonHTML += '<button onclick="editModal(this)" type="button" class="btn-xs btn btn-warning" title="Edit"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></button>'
         buttonHTML += '<button onclick="deleteModal(this)" type="button" class="btn-xs btn btn-danger" title="Delete"><i class="fa fa-times" aria-hidden="true"></i></button>'
         buttonHTML += '</div>';
@@ -53,7 +61,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID) {
         "targets": -1,
         "data": null,
         "defaultContent": buttonHTML,
-        "width": tableID == '#datatable' ? "70px" : "40px",
+        "width": colWidth,
         "orderable": false,
     }];
 
@@ -74,6 +82,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID) {
         historyTable.destroy();
     }
 
+    console.log(tableID);
 
     historyTable = jQuery(tableID).DataTable( {
         "retrieve": true,
@@ -195,7 +204,7 @@ function historyModal(sel) {
 
     // fill table with data
     // vars are defined in modal.php
-    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable');
+    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable', false);
 }
 
 
@@ -266,7 +275,7 @@ function historyModal(sel) {
 
     // fill table with data
     // vars are defined in modal.php
-    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable');
+    getDBdata(table, columnHist, pk, {'_UID_fk': uidVal}, hiddenHist, '#historyTable', false);
 }
 
 
