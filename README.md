@@ -14,8 +14,7 @@ A simplified CRUD front-end with built in visualization features.
 
 - Each *company* or *account* gets their own database name
 - Each table always has a history counterpart
-- Each table requires:
-  1. first column must be named _UID, be an INT, auto increment, be a primary key,  and have the comment ` {"column_format": "hidden"}` 
+- Each table must at a minimum have a primary key.
 - Each history table requires:
   1. same name as data table counterpart, but with appended '_history'
   2. same columns as data table counterpart
@@ -24,3 +23,8 @@ A simplified CRUD front-end with built in visualization features.
     - User:  varchar(128), not null
     - Timestamp: timestamp, default CURRENT_TIMESTAMP
     - Action: varchar(128), not null
+
+## Table options
+
+Fields can have comments formatted as JSON to specify different options:
+{"column_format": "hidden"} - will be hidden from view on front end
