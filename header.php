@@ -12,6 +12,7 @@
         <link rel="stylesheet" type="text/css" href='https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css' />
         <link rel="stylesheet" type="text/css" href='css/styles.css' />
         <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous" />
+        <link rel="stylesheet" type="text/css" href='https://cdn.jsdelivr.net/jquery.query-builder/2.4.0/css/query-builder.default.min.css' />
  
 
         <!-- JS -->
@@ -20,6 +21,8 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
         <script type="text/javascript" src="js/table.js"></script>
         <script type="text/javascript" src="js/jquery.TableCSVExport.js"></script>
+        <script type="text/javascript" src="https://cdn.rawgit.com/mistic100/jQuery.extendext/0.1.2/jQuery.extendext.min.js"></script>
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery.query-builder/2.4.0/js/query-builder.min.js"></script>
 
     </head>
 

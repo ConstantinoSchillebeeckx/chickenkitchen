@@ -21,18 +21,6 @@ if ( isset($_GET['table'] ) ) {
     $table = $_GET['table'];
     $primaryKey = $_GET['pk'];
 
-    // setup filter
-    // should be a way of setting up the ajax call before it comes to the
-    // server (e.g. columns[X][search][value] = ..
-    // but I don't know how to do it, so I'm doing it manually here
-    $filter = $_GET['filter'];
-    if ( isset( $filter ) && is_array( $filter ) ) {
-        foreach ( $filter as $col => $str ) {
-            $idx = array_search( $col, $_GET['cols'] ); // col number of filter
-            $_GET['columns'][$idx]['search']['value'] = $str;
-        }
-    }
-
     // Array of database columns which should be read and sent back to DataTables.
     // The `db` parameter represents the column name in the database, while the `dt`
     // parameter represents the DataTables column identifier. In this case simple

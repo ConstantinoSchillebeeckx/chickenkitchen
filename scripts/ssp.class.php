@@ -119,6 +119,7 @@ class SSP {
         $columnSearch = array();
         $dtColumns = self::pluck( $columns, 'dt' );
 
+        // global filter
         if ( isset($request['search']) && $request['search']['value'] != '' ) {
             $str = $request['search']['value'];
 
@@ -147,6 +148,14 @@ class SSP {
                     $binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );
                     $columnSearch[] = "`".$column['db']."` LIKE ".$binding;
                 }
+            }
+        }
+
+        // filter on cell (when clicking hyperlink in cell)
+        if ( isset( $request['filter'] ) && is_array( $request['filter'] ) ) {
+            foreach ( $request['filter'] as $col => $str ) {
+                $binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );
+                $columnSearch[] = "`".$col."` LIKE ".$binding;
             }
         }
 
@@ -230,7 +239,7 @@ class SSP {
             "recordsTotal"    => intval( $recordsTotal ),
             "recordsFiltered" => intval( $recordsFiltered ),
             "data"            => self::data_output( $columns, $data ),
-            "where" => $request
+            "where" => $where
         );
     }
 
