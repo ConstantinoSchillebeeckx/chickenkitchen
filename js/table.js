@@ -262,7 +262,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "processing": true,
         "serverSide": true,
         "ajax": {
-            "url": 'scripts/ssp.class.php',
+            "url": 'ssp.class.php',
             "data": data,
             },
         "columnDefs": colDefs,

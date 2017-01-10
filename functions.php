@@ -45,7 +45,7 @@ function get_db_conn() {
 function get_db_setup() {
 
     require_once "config/db.php"; // load DB variables
-    require_once "scripts/db.class.php"; // Database class
+    require_once "db.class.php"; // Database class
 
 
     if ( !isset( $_SESSION['db'] ) ) {
