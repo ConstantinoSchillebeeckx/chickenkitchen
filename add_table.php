@@ -1,5 +1,6 @@
 <?php require_once 'header.php'; ?>
 <?php require_once 'nav.php'; ?>
+<?php require_once "functions.php"; ?>
 
 
 <?php /*
@@ -16,6 +17,8 @@ if (isset($_GET['table'])) {
 }
 
 ?>
+
+<div class="alertContainer"></div> <!-- automatically filled by showMsg() -->
 
 <form class="form-horizontal" onsubmit="return false;">
   <div class="form-group">
@@ -39,9 +42,14 @@ if (isset($_GET['table'])) {
 
 
 <script  type="text/javascript">
-    //db = cleanDB(tmp); i think this is used to check things like names of tables that currently exist
-
+    var db;
     jQuery(function() {
+        // store DB structure as JS var so that we can error check
+        // things like if table name exists when creating or
+        // editing a table
+        var tmp = <?php echo get_db_setup()->asJSON(); ?>;
+        db = cleanDB( tmp );
+
         jQuery('#add_field').click(); // automatically add the first field
         jQuery('#type-1').val('varchar'); // automatically set the first field type
 

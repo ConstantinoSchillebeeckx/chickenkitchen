@@ -1,3 +1,164 @@
+/* Send AJAX request to sever
+
+Will send an AJAX request to the server and properly show/log
+the response as either a message to the user or an error
+message in the console.
+
+Paramters:
+----------
+- data : obj
+         data object to send to the server
+
+Returns:
+--------
+will set globals ajaxStatus (true on success, false otherwise) and
+ajaxResponse as well as run the callback on complete.
+
+*/
+function doAJAX(data, callback) {
+
+    ajaxStatus = false; // global!
+    ajaxResponse = ''; // global!
+
+    // send via AJAX to process with PHP
+    jQuery.ajax({
+            url: ajax_object.ajax_url,
+            type: "GET",
+            data: data,
+            dataType: 'json',
+            contentType: "application/json; charset=utf-8",
+            success: function(response) {
+                ajaxStatus = true; 
+                ajaxResponse = response;
+            },
+            error: function(xhr, status, error) {
+                ajaxResponse = xhr.responseText;
+                console.log(xhr.responseText);
+            },
+            complete: function() {
+                callback();
+            }
+    });
+
+}
+
+
+/* Clean up JS version of $db
+
+By default, the $db obj protected attributes will have a prepended '*' in the key, see:
+https://ocramius.github.io/blog/fast-php-object-to-array-conversion/
+
+This function cleans up the object so that it's easier to work with
+
+Parameters:
+- obj: <?php echo get_db()->asJSON(); ?>
+
+*/
+function cleanDB(obj) {
+
+    var clean = {};
+    var value;
+
+    for (var k in obj) {
+
+        value = obj[k];
+
+        // if obj, recurse
+        if (typeof obj[k] == "object" && obj[k] !== null) {
+            value = cleanDB(obj[k]);
+        }
+
+        clean[k.replace('\0*\0','')] = value;
+    }
+    return clean;
+
+}
+
+
+
+
+/* Will parse form on page into obj for use with AJAX
+
+Parameters:
+===========
+- sel : str
+        selector for form (e.g. form)
+
+Returns:
+========
+- obj : with form input field values {name: val}
+
+*/
+function getFormData(sel) {
+
+    var data = {};
+
+    var formData = jQuery(sel).serializeArray(); // form data
+
+    jQuery.each(formData, function() {
+        var val = this.value;
+        if (val == 'on') {
+            val = true;
+        } else if (val == '') {
+            val = null;
+        }
+        data[this.name] = val;
+    })
+
+    //return JSON.stringify(data);
+    return data
+
+}
+
+
+
+
+/* Catch AJAX response and show message if needed
+
+Will generate a dismissable alert div at the top
+of the page which will hide after 3 seconds
+
+Parameters:
+===========
+- dat : object
+        -> msg : msg to display
+        -> status : bool - true if success msg, false if error msg
+        -> hide : bool - true will auto-hide message after 3s (if key is ommited, message will hide)
+- sel : str
+        selector into which alert is placed (will do a jQuery prepend()); if none provided it will be ".alertContainer"
+*/
+function showMsg(dat, sel) {
+
+    if (sel == null) { sel = '.alertContainer' };
+
+    var type = dat.status ? 'success' : 'danger';
+    var msg = dat.msg;
+    var hide = dat.hide; // true will auto-remove the message, false will keep message on scree
+    var alertDiv = '<div id="alertDiv" class="alert alert-' + type + ' alert-dismissible" role="alert"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' + msg + '</div>';
+
+    jQuery( alertDiv ).prependTo( sel );
+
+    // automatically hide msg after 3s
+    var timeout = setTimeout(function () {
+        jQuery(".alert").fadeTo(2000, 500).slideUp(500, function ($) {
+            jQuery(".alert").remove();
+        });
+    }, 3000);
+
+    if (!hide) {
+        clearTimeout(timeout);
+    }
+
+}
+
+
+
+
+
+
+
+
+
 /* 
 AJAX call for retreiving DB data
 
@@ -101,7 +262,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "processing": true,
         "serverSide": true,
         "ajax": {
-            "url": 'scripts/server_processing.php',
+            "url": 'scripts/ssp.class.php',
             "data": data,
             },
         "columnDefs": colDefs,
@@ -387,7 +548,10 @@ function addField() {
 
 
 
-/* Function called when "Create table" button is clicked
+/* 
+
+Function called when "Create table" button is clicked
+
 */
 function addTable() {
     
@@ -405,14 +569,13 @@ function addTable() {
 
 
         // ensure table doesn't exist
-        // global var db is set in the add_table WP template
+        // global var db is set in the add_table.php
         // NOTE: protected attributes will have a prepended '*' in the key, see:
         // https://ocramius.github.io/blog/fast-php-object-to-array-conversion/
         for (var i in db['tables']) {
             var table = db['tables'][i];
-            var table_safe = table.split('_')[1];
-            if (table_safe.toLowerCase() == jQuery('[name="table_name"').val().toLowerCase()) {
-                showMsg({'msg':'Table name <code>' + table_safe + '</code> already exists, please choose another.', 'status':false, 'hide': false});
+            if (table.toLowerCase() == jQuery('[name="table_name"').val().toLowerCase()) {
+                showMsg({'msg':'Table name <code>' + table + '</code> already exists, please choose another.', 'status':false, 'hide': false});
                 return;
             }
         }
