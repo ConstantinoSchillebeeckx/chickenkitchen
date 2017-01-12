@@ -196,5 +196,166 @@ function get_form_table_row($table) {
 <?php }
 
 
+/* Function called by AJAX when user attempts to add table
+
+Will do all the proper error checking:
+- table name must not already exist
+- table name length must be <= 64
+- table name must only include [a-zA-Z0-9\-_]
+- field names are unique
+- field name length must be <= 64
+- field name must only include [a-zA-Z0-9\-_\s]
+
+
+Parameters:
+===========
+- $_GET['dat'] : obj of form data (key: col name, val: value)
+                 at a minimum will have the following keys:
+                 - table_name (safe name)
+                 - name-1 (field name)
+                 - type-1 (field type)
+- $_GET['field_num'] : number of fields being added
+*/
+function add_table_to_db() {
+
+
+    $db = get_db_setup();
+    $field_num = $_GET['field_num'];
+    $data = $_GET['dat'];
+    $tables = $db->get_tables(); // list of tables in DB
+
+
+    // make sure we have everything
+    if ( isset( $data['table_name'] ) && !empty( $data['table_name'] ) ) {
+        $table = $data['table_name'];
+    }
+
+
+
+    // table name must not already exist
+    if ( in_array( $table, $tables ) ) {
+        echo json_encode(array("msg" => "Table name <code>$table</code> already exists, please choose another.", "status" => false, "hide" => false)); 
+    }
+
+    echo json_encode(array("msg" => "There was an error, please try again", "status" => false, "hide" => false));
+
+    return;
+
+
+
+
+
+
+
+
+
+
+    // ensure table name is only letters
+    if (preg_match('/^[a-z0-9-_]+$/i', $data['table_name'])) {
+        $table_name = $db->get_name() . '.' . $db->get_company() . '_' . $data['table_name'];
+        $table_name_history = $db->get_name() . '_history.' . $db->get_company() . '_' . $data['table_name'];
+    } else {
+        return json_encode(array("msg" => 'Only letters, numbers, underscores and dashes are allowed in the table name.', "status" => false, "hide" => false)); 
+    }
+    $binds = array();
+    // construct SQL for table by checking each field
+    $fields = array(); // list of fields for table
+    $history_fields = array(); // list of fields for history table counterpart
+    // each table will have a UID which acts as a unique identifier for the row
+    $uid_field = ' _UID int NOT NULL PRIMARY KEY AUTO_INCREMENT COMMENT \'{"column_format": "hidden"}\''; 
+    $fields[] = $uid_field;
+    array_push($history_fields, $uid_field, ' `_UID_fk` int NOT NULL COMMENT \'{"column_format": "hidden"}\'', ' `_timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP', ' `_action` varchar(15) NOT NULL', ' INDEX `_UID_fk_IX` (`_UID_FK`)', ' INDEX `_timestamp_IX` (`_timestamp`)', ' INDEX `_action_IX` (`_action`)');
+    for ($i = 1; $i <= $field_num; $i++) {
+        $tmp_sql = '';
+        $field_name = $data['name-' . $i];
+        $field_default = isset($data['default-' . $i]) ? $data['default-' . $i] : false;
+        $field_current = isset($data['currentDate-' . $i]) ? $data['currentDate-' . $i] : false;
+        $field_required = isset($data['required-' . $i]) ? $data['required-' . $i] : false;
+        $field_unique = isset($data['unique-' . $i]) ? $data['unique-' . $i] : false;
+        $field_ix = sprintf(' INDEX `%s_IX` (`%s`)', $field_name, $field_name);
+        $field_current ? $field_default = true : null;
+        // ensure field name is only alphanumeric
+        if (!preg_match('/^[a-z0-9 .\-_]+$/i', $field_name)) {
+            return json_encode(array("msg" => "Only letters, numbers, spaces, underscores and dashes are allowed in the field name; please adjust the field <code>$field_name</code>.", "status" => false, "hide" => false)); 
+        }
+        // ensure default field is only alphanumeric
+        if ($field_default && !preg_match('/^[a-z0-9 .\-_]+$/i', $field_default)) {
+            return json_encode(array("msg" => "Only letters, numbers, spaces, underscores and dashes are allowed as a default value; please adjust the default value <code>$field_default</code>.", "status" => false, "hide" => false));
+        }
+        $field_type = $data['type-' . $i];
+        // date field type cannot have default current_date,
+        // so we change the type to timestamp
+        // and leave a note in the comment field
+        $comment = false;
+        if ($field_current && $field_type == 'date') {
+            $field_type = 'datetime';
+            $comment .=' COMMENT \'{"column_format": "date"}\'';
+        } elseif ($field_type == 'fk') { // foreign key cannot have a default value or be unique
+            $field_default = false;
+            $field_unique = false;
+            $fk = explode('.', $data['foreignKey-' . $i]); // name.col of foreign key
+            $fk_table = $db->get_company() . '_' . $fk[0];
+            $fk_col = $fk[1];
+            $field_class = $db->get_field($fk_table, $fk_col);
+            if ($field_class) {
+                $field_type = $field_class->get_type();
+            } else {
+                return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "log"=>array($fk_table, $fk_col, $field_class), "hide" => false));
+            }
+        }
+        // set field type
+        if ($field_type == 'int') {
+            $tmp_sql .= " `$field_name` int(32)";
+        } else if ($field_type == 'varchar') {
+            if ($field_unique) { // a unique field will create an index which is limited to 767 bytes (191 * 4)
+                $tmp_sql .= " `$field_name` varchar(191)";
+            } else {
+                $tmp_sql .= " `$field_name` varchar(4096)";
+            }
+        } else {
+            $tmp_sql .= " `$field_name` $field_type";
+        }
+        // add comment if one exists
+        if ($comment) {
+            $tmp_sql .= $comment;
+        }
+        $field_required ? $tmp_sql .= " NOT NULL" : null;
+        if ($field_default) {
+            $field_type == 'datetime' ? $tmp_sql .= " DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" : $tmp_sql .= " DEFAULT '$field_default'";
+        }
+        $field_unique ? $tmp_sql .= " UNIQUE" : null;
+  
+        $fields[] = $tmp_sql; 
+        $history_fields[] = str_replace(array(' UNIQUE', ' NOT NULL'),'', $tmp_sql); // only the manually added UID field can be unique
+        // add indexes to each field type (except for those that are unique in the non-history table or are FK)
+        $history_fields[] = $field_ix;
+        if ($field_type != 'fk' && !$field_unique) $fields[] = $field_ix;
+        // if FK type was requested, add the constraint
+        if ($data['type-' . $i] == 'fk') {
+            $fk_tmp = sprintf("FOREIGN KEY fk_%s(%s) REFERENCES %s(%s)", $field_name, $field_name, $fk_table, $fk_col);
+            $fields[] = $fk_tmp;
+        }
+ 
+        $field_unique && $field_required ? $has_uid = true : null; // set flag if unique field found
+        if ($i == $field_num) $history_fields[] = " `_user` varchar(56) NOT NULL"; // add a field for user
+    
+    } 
+    $sql = "CREATE TABLE $table_name ( " . implode(',', $fields) . " )";
+    $sql2 = "CREATE TABLE $table_name_history ( " . implode(',', $history_fields) . " )";
+    $res = exec_query($sql);
+    $res2 = exec_query($sql2);
+    if ($res && $res2) {
+        $msg = sprintf("The table <code>%s</code> was properly created; begin adding <a href='%s'>data</a>.", $data['table_name'], VIEW_TABLE_URL_PATH . '?table=' . $data['table_name']);
+        $ret = array("msg" => $msg, "status" => true, "log"=>$sql, "hide" => true);
+        init_db(); // refresh so that table will show up in menu
+        return json_encode($ret);
+    } else {
+        return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "log"=>$sql, "hide" => false));
+    }
+}
+
+
+
+
 
 ?>

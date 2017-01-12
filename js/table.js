@@ -11,6 +11,10 @@ Paramters:
 
 Returns:
 --------
+obj to be used with showMsg(), has keys:
+- msg : string to display in message
+- status: false for error, true for no error
+
 will set globals ajaxStatus (true on success, false otherwise) and
 ajaxResponse as well as run the callback on complete.
 
@@ -22,18 +26,20 @@ function doAJAX(data, callback) {
 
     // send via AJAX to process with PHP
     jQuery.ajax({
-            url: ajax_object.ajax_url,
+            url: 'ajax.php',
             type: "GET",
             data: data,
             dataType: 'json',
             contentType: "application/json; charset=utf-8",
             success: function(response) {
-                ajaxStatus = true; 
+                ajaxStatus = true;
                 ajaxResponse = response;
             },
             error: function(xhr, status, error) {
                 ajaxResponse = xhr.responseText;
-                console.log(xhr.responseText);
+                console.log(xhr);
+                console.log(status);
+                console.log(error);
             },
             complete: function() {
                 callback();
@@ -565,57 +571,16 @@ function addTable() {
                 "field_num": fieldNum // number of fields
         }
         console.log(data);
-
-
-
-        // ensure table doesn't exist
-        // global var db is set in the add_table.php
-        // NOTE: protected attributes will have a prepended '*' in the key, see:
-        // https://ocramius.github.io/blog/fast-php-object-to-array-conversion/
-        for (var i in db['tables']) {
-            var table = db['tables'][i];
-            if (table.toLowerCase() == jQuery('[name="table_name"').val().toLowerCase()) {
-                showMsg({'msg':'Table name <code>' + table + '</code> already exists, please choose another.', 'status':false, 'hide': false});
-                return;
-            }
-        }
-
-        var names = [];
-        for (var i = 1; i <= data.field_num; i++ ) {
-
-            // sensure field names are unique
-            var field = 'name-' + i;
-            var name = data.dat[field];
-            if (names.indexOf(name) > -1) { // name not unique
-                showMsg({'msg':'All column names must be unique, <code>' + name + '</code> given multiple times.', 'status':false, 'hide': false});
-                return;
-            }        
-            names.push(name);
-
-            // check that default value matches with field type
-            var defaultVal = data.dat['default-' + i];
-            if (defaultVal) {
-                var type = data.dat['type-' + i];
-                if ( type == 'float' && !(isFloat(defaultVal) || isInt(defaultVal)) ) {
-                    showMsg({'msg':'If specifying a float type for the column <code>' + name + '</code>, please ensure the default value is a float value.', 'status':false, 'hide': false});
-                    return;
-                } else if ( type == 'int' && !isInt(defaultVal) ) {
-                    showMsg({'msg':'If specifying an integer type for the column <code>' + name + '</code>, please ensure the default value is an integer.', 'status':false, 'hide': false});
-                    return;
-                }
-            }
-        }
-
      
         // send data to server
         doAJAX(data, function() {
-            if (ajaxStatus) {
+            if (ajaxResponse.status) {
+                console.log(ajaxStatus);
                 addTableToNav(jQuery('[name="table_name"').val());
                 showMsg(ajaxResponse);
-                // should update js var DB here ...
             } else {
-                showMsg({"msg":"There was an error creating the table, please try again.", "status": false, 'hide': false});
-                console.log(ajaxReponse);
+                showMsg(ajaxResponse);
+                console.log(ajaxResponse);
             }
         });
     }
