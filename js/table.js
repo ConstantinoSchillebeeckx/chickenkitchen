@@ -507,7 +507,7 @@ function addField() {
             '<div class="form-group">',
             '<label class="col-sm-2 control-label" id="fieldLabel">Field name*</label>',
             '<div class="col-sm-3">',
-            '<input type="text" class="form-control" name="name-' + fieldNum + '" required pattern="[a-zA-Z0-9 ]+" title="Letters, numbers and spaces only">',
+            '<input type="text" class="form-control" name="name-' + fieldNum + '" required pattern="[a-zA-Z0-9\-_ ]+" title="Letters, numbers, hypens and underscores and spaces only" maxlength="64">',
             '</div>',
             '<label class="col-sm-1 control-label">Type</label>',
             '<div class="col-sm-2">',

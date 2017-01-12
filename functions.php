@@ -204,7 +204,7 @@ Will do all the proper error checking:
 - table name must only include [a-zA-Z0-9\-_]
 - field names are unique
 - field name length must be <= 64
-- field name must only include [a-zA-Z0-9\-_\s]
+- field name must only include [a-zA-Z0-9\-_ ]
 
 
 Parameters:
@@ -235,6 +235,54 @@ function add_table_to_db() {
     // table name must not already exist
     if ( in_array( $table, $tables ) ) {
         echo json_encode(array("msg" => "Table name <code>$table</code> already exists, please choose another.", "status" => false, "hide" => false)); 
+        return;
+    }
+
+    // ensure table name is only allowed letters
+    if ( !preg_match( '/^[a-zA-Z0-9\-_]+$/i', $table ) ) {
+        echo json_encode(array("msg" => "Table name may only include letters, numbers, hypens and underscores, please choose another.", "status" => false, "hide" => false)); 
+        return;
+    }
+
+    // table name can only be max 64 chars
+    if ( strlen( $table ) > 64 ) ) {
+        echo json_encode(array("msg" => "Table name <code>$table</code> is too long, please choose a shorter name.", "status" => false, "hide" => false)); 
+        return;
+    }
+    if ( empty( $table ) ) {
+        echo json_encode(array("msg" => "Table name cannot be empty." "status" => false, "hide" => false)); 
+        return;
+    }
+
+    // check field names for errors
+    $fields = [];
+    for( $i = 1; $i<=$field_num; $i++ ) {
+
+        $field = $data["name-$i"];
+
+        // check uniqueness
+        if ( in_array( $field, $fields ) ) {
+            echo json_encode(array("msg" => "Field name <code>$field</code> is not unique, please choose another name.", "status" => false, "hide" => false)); 
+            return;
+        }
+
+        // check allowed chars
+        if ( !preg_match( '/^[a-zA-Z0-9\-_ ]+$/i', $field ) ) {
+            echo json_encode(array("msg" => "Field name <code>$field</code> may only include letters, numbers, hypens, underscores and spaces, please choose another.", "status" => false, "hide" => false)); 
+            return;
+        }
+
+        // check name length
+        if ( strlen( $field ) > 64 ) {
+            echo json_encode(array("msg" => "Field name <code>$field</code> is too long, please choose a shorter name.", "status" => false, "hide" => false)); 
+            return;
+        }
+        if ( empty( $field ) ){
+            echo json_encode(array("msg" => "Field name cannot be empty." "status" => false, "hide" => false)); 
+            return;
+        }
+
+        $fields[] = $field;
     }
 
     echo json_encode(array("msg" => "There was an error, please try again", "status" => false, "hide" => false));
