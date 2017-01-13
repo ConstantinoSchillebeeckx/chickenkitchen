@@ -43,6 +43,9 @@ if (isset($_GET['table'])) {
 
 <script  type="text/javascript">
     jQuery(function() {
+        // store DB as JS var in case use requests a FK field type
+        var tmp = <?php echo get_db_setup()->asJSON(); // send DB to javascript var ?>;
+        db = cleanDB(tmp);
 
         jQuery('#add_field').click(); // automatically add the first field
         jQuery('#type-1').val('varchar'); // automatically set the first field type

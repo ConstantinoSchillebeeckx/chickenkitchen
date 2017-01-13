@@ -67,7 +67,18 @@ class Database {
 
                 // generate DB structure
                 foreach ($this->tables as $table) {
-                    $this->struct[$table] = new Table($table, $fks, $db);
+                    $is_history = false;
+
+                    // figure out if table name is a history counter part
+                    // e.g. if it has an appended "XXX_history"
+                    // the root name XXX must also exist in the list of tables
+                    $table_name_parts = explode( '_', $table);
+                    $table_name_end = end( $table_name_parts);
+                    $table_name_root = implode( '_', array_slice($table_name_parts, 0, -1) );
+    
+                    if ( $table_name_end == 'history' && in_array( $table_name_root, $this->tables )) $is_history = true;
+
+                    $this->struct[$table] = new Table($table, $fks, $db, $is_history);
                 }
             }
         }
@@ -201,11 +212,13 @@ class Table {
 
     protected $fields = array();
     protected $name = null;
+    protected $is_history = false;
     protected $struct = array();
     
 
-    public function __construct($name, $fks, $db) {
+    public function __construct($name, $fks, $db, $is_history) {
         $this->name = $name;
+        $this->is_history = $is_history;
 
         // get list of fields
         $sql = sprintf("SHOW FULL COLUMNS FROM %s", $this->name);
@@ -231,6 +244,11 @@ class Table {
     // same as get_table()
     public function get_name() {
         return $this->name;
+    }
+
+    // return true if table is history counter part
+    public function is_history() {
+        return $this->is_history;
     }
 
     // return full name (with DB prepended)

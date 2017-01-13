@@ -1,3 +1,30 @@
+/*
+
+Function called every time the checkbox is selected
+for automatically filling field with date or
+date/time.
+
+Used to uncheck/disable the required/unique
+checkboxes since they don't make sense when 
+automatically setting the date.
+
+*/
+function toggleDate(checkBox) {
+
+    // if user selects checkbox, uncheck
+    // the required and unique and disable
+    if (jQuery(checkBox).is(':checked')) {
+        jQuery("[name^=unique-]").prop('checked', false).prop('disabled', true);
+        jQuery("[name^=required-]").prop('checked', false).prop('disabled', true);
+    } else {
+        jQuery("[name^=unique-]").prop('disabled', false);
+        jQuery("[name^=required-]").prop('disabled', false);
+    }
+
+}
+
+
+
 /* Send AJAX request to sever
 
 Will send an AJAX request to the server and properly show/log
@@ -136,6 +163,8 @@ Parameters:
 function showMsg(dat, sel) {
 
     if (sel == null) { sel = '.alertContainer' };
+
+    jQuery('#alertDiv').remove(); // remove any alerts already present
 
     var type = dat.status ? 'success' : 'danger';
     var msg = dat.msg;
@@ -525,7 +554,7 @@ function addField() {
             '<div class="form-group">',
             '<label class="col-sm-2 control-label" id="fieldLabel">Default value</label>',
             '<div class="col-sm-3">',
-            '<input type="text" class="form-control" name="default-' + fieldNum + '" pattern="[a-zA-Z0-9 ]+" title="Letters, numbers and spaces only">',
+            '<input type="text" class="form-control" name="default-' + fieldNum + '">',
             '</div>',
             '<div class="col-sm-offset-1 col-sm-6" id="hiddenType-' + fieldNum + '">',
             '</div>',
@@ -605,9 +634,11 @@ function selectChange(id){
         hidden.html(html);
 
         // a FK cannot have a default nor can it be unique
+/*
         jQuery("[name^=default-]").prop('disabled',true)
         jQuery("[name^=unique-]").prop('disabled',true)
         jQuery("[name^=unique-]").prop('checked',false)
+*/
 
     } else if (val == 'date') {
         html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
@@ -655,17 +686,20 @@ function getFKchoices(id=null) {
     var html = '<select class="form-control" name="' + name + '" required>';
     for (var i in db['tables']) {
         var table = db['tables'][i];
-        var tableSafe = table.split('_')[1]; // remove company name
         var tableStruct = struct[table];
         var fieldStruct = tableStruct['struct'];
-        
-        for (var j in tableStruct['fields']) {
-            var field = tableStruct['fields'][j];
-            if ( fieldStruct[field]['hidden'] == false) {
-                var val = tableSafe + '.' + field;
-                var label = 'Table: ' + tableSafe + ' | Field: ' + field;
-            
-                html += '<option value="' + val + '">' + label + '</option>';
+        var isHist = tableStruct['is_history'];
+       
+        // only generate FK for regular tables (not history tables)
+        if (isHist == false) { 
+            for (var j in tableStruct['fields']) {
+                var field = tableStruct['fields'][j];
+                if ( fieldStruct[field]['hidden'] == false) {
+                    var val = table + '.' + field;
+                    var label = 'Table: ' + table + ' | Field: ' + field;
+                
+                    html += '<option value="' + val + '">' + label + '</option>';
+                }
             }
         }
 
