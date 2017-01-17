@@ -12,7 +12,7 @@ A simplified CRUD front-end with built in visualization features.
 
 
 ## TODO
-- [ ] create new table
+- [x] create new table
 - [ ] hyper links for quick cell filtering
 - [ ] edit item in table
 - [ ] delete item in table
