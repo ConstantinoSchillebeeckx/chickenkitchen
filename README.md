@@ -13,11 +13,11 @@ A simplified CRUD front-end with built in visualization features.
 
 ## TODO
 - [x] create new table
-- [ ] hyper links for quick cell filtering
+- [ ] delete table
 - [ ] edit item in table
 - [ ] delete item in table
+- [ ] hyper links for quick cell filtering
 - [ ] revert history
-- [ ] delete table
 - [ ] edit table (fields, name)
 - [ ] batch (insert, delete, edit)
 - [ ] advanced searching (http://querybuilder.js.org/)
@@ -26,7 +26,6 @@ A simplified CRUD front-end with built in visualization features.
 ## Database setup
 
 - database must be `utf8`
-
 - Each *company* or *account* gets their own database name
 - Each table always has a history counterpart which is named the same as table but with an appended '_history'
 - Each table must at a minimum have a primary key, it'll be named `_UID int(11)`
@@ -43,3 +42,4 @@ A simplified CRUD front-end with built in visualization features.
 
 Fields can have comments formatted as JSON to specify different options:
 {"column_format": "hidden"} - will be hidden from view on front end
+{"column_format": "date"} - for use with date type fields (stored as datetime) will only display date part on the front end
