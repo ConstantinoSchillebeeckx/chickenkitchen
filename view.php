@@ -8,7 +8,7 @@
 <?php /*
 
 This is the main page most users will spend their time on, it displays the contents of a table defined by the
-$_GET['table'] parameter.
+$_GET['table'] parameter; if $_GET['table'] not set, page will show list of tables available for viewing.
 
 Primarily, it will call the build_table() function which will generate all the HTML and JS necessary for viewing
 the table contents.  Specifically, build_table() will generate the HTML <table> structure for the given table,
@@ -26,9 +26,10 @@ library
 
 */ ?>
 <div class="row">
-    <div class="col-sm-8">
-        <h1><?php echo isset($_GET['table']) ? "Viewing table <code>" . $_GET['table'] . "</code>" : the_title(); ?></h1>
+    <div class=<?php echo isset($_GET['table']) ? "col-sm-8" : "col-sm-12" ?>>
+        <h1><?php echo isset($_GET['table']) ? "Viewing table <code>" . $_GET['table'] . "</code>" : "View tables" ?></h1>
     </div>
+    <?php if( isset($_GET['table']) ) { ?>
     <div class="col-sm-4" style="margin-top:20px">
         <div class="btn-group pull-right" role="group" aria-label="...">
             <button type="button" title="Add item to table" class="btn btn-info" onclick="addItemModal()"><i class="fa fa-plus fa-2x" aria-hidden="true"></i></button>
@@ -37,11 +38,13 @@ library
             <a href="<?php echo ADD_TABLE_URL_PATH . '?table=' . $_GET['table']; ?>" title="Modify table setup" class="btn btn-warning"><i class="fa fa-cog fa-2x" aria-hidden="true"></i></a>
         </div>
     </div>
+    <?php } else { list_tables(); } ?>
 </div> 
 
-<?php build_table( $_GET['table'] ) ?>
+<?php if ( isset( $_GET['table'] ) ) build_table( $_GET['table'] ) ?>
 
 <?php include_once("modals.php"); // must be included after table vars are defined ?>
+
 
 
 <?php require_once 'footer.php'; ?>

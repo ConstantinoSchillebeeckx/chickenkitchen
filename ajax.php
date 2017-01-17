@@ -13,7 +13,7 @@
 
     } else {
 
-        echo json_encode( array( 'msg'=>'Ensure "action" is sent in AJAX data.', 'status'=>false, 'hide'=> false ));
+        echo json_encode( array( 'msg'=>'Ensure "action" is sent in AJAX data.', 'status'=>false, 'hide'=> false, "log" => $_GET ));
 
     }
 

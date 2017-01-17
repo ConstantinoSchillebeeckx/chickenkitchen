@@ -5,7 +5,10 @@
 
 <?php /*
 
-TODO
+Page allows user to add new tables to DB.  Form collects all required
+info which then fires and AJAX request to the add_table_to_db()
+function found in functions.php.  On success or error, a message
+is displayed to the user - the success message will autohide in 3s.
 
 */
 
@@ -49,6 +52,7 @@ if (isset($_GET['table'])) {
 
         jQuery('#add_field').click(); // automatically add the first field
         jQuery('#type-1').val('varchar'); // automatically set the first field type
+        selectChange(1); // call function to show helper text for string type
 
         // fill table name if available
         table = '<?php echo $_GET['table'] ;?>';

@@ -221,7 +221,7 @@ class Table {
         $this->is_history = $is_history;
 
         // get list of fields
-        $sql = sprintf("SHOW FULL COLUMNS FROM %s", $this->name);
+        $sql = sprintf("SHOW FULL COLUMNS FROM `%s`", $this->name);
         $results = $db->query($sql)->fetchAll();
         $info = array();
         foreach($results as $row) {

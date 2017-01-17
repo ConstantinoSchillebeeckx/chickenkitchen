@@ -11,14 +11,39 @@ automatically setting the date.
 */
 function toggleDate(checkBox) {
 
+    var fieldNum = checkBox.name.split('-').slice(-1)[0];
+
+    // if user selects checkbox, uncheck
+    // the required and unique and disable
+    if (jQuery(checkBox).is(':checked')) {
+        jQuery("[name=unique-" + fieldNum + "]").prop('checked', false).prop('disabled', true);
+        jQuery("[name=required-" + fieldNum + "]").prop('checked', false).prop('disabled', true);
+        jQuery("input[type=text][name=default-" + fieldNum + "]").prop('disabled', true);
+    } else {
+        jQuery("[name=unique-" + fieldNum + "]").prop('disabled', false);
+        jQuery("[name=required-" + fieldNum + "]").prop('disabled', false);
+        jQuery("input[type=text][name=default-" + fieldNum + "]").prop('disabled', false);
+    }
+
+}
+
+
+/*
+
+Function called when long version of string selected
+by the user. It is used to unselect and disable
+the unique field since a long string type (> 191 char)
+cannot have the unique SQL index on it
+
+*/
+function toggleLongString(checkBox) {
+
     // if user selects checkbox, uncheck
     // the required and unique and disable
     if (jQuery(checkBox).is(':checked')) {
         jQuery("[name^=unique-]").prop('checked', false).prop('disabled', true);
-        jQuery("[name^=required-]").prop('checked', false).prop('disabled', true);
     } else {
         jQuery("[name^=unique-]").prop('disabled', false);
-        jQuery("[name^=required-]").prop('disabled', false);
     }
 
 }
@@ -138,7 +163,6 @@ function getFormData(sel) {
         data[this.name] = val;
     })
 
-    //return JSON.stringify(data);
     return data
 
 }
@@ -603,14 +627,8 @@ function addTable() {
      
         // send data to server
         doAJAX(data, function() {
-            if (ajaxResponse.status) {
-                console.log(ajaxStatus);
-                addTableToNav(jQuery('[name="table_name"').val());
-                showMsg(ajaxResponse);
-            } else {
-                showMsg(ajaxResponse);
-                console.log(ajaxResponse);
-            }
+            showMsg(ajaxResponse);
+            console.log(ajaxResponse);
         });
     }
 
@@ -631,30 +649,21 @@ function selectChange(id){
     if (val == 'fk') {
         var html = '<p>Text for foreign key</p>';
         html += getFKchoices(id);
-        hidden.html(html);
-
-        // a FK cannot have a default nor can it be unique
-/*
-        jQuery("[name^=default-]").prop('disabled',true)
-        jQuery("[name^=unique-]").prop('disabled',true)
-        jQuery("[name^=unique-]").prop('checked',false)
-*/
-
     } else if (val == 'date') {
         html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
-        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="currentDate-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
-        hidden.html(html);
+        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
     } else if (val == 'varchar') {
-        hidden.html('<p>A string field can be contain letters, numbers and various other characters such as commas or dashes.</p>');
+        html = '<span>A string field can be contain letters, numbers and various other characters such as commas or dashes; this field is limited to 255 utf8 characters or less (see below).</span>';
+        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="longString-' + id + '" onchange="toggleLongString(this)"> check if you plan on storing strings longer than 255 characters (limit 4096); note that if this is selected, this field <b>cannot be used as the reference for a foreign key nor can it be unique</b>.</label>';
     } else if (val == 'int') {
-        hidden.html('<p>An integer field can only contain whole numbers such as <code>4321</code>.</p>');
+        html = '<p>An integer field can only contain whole numbers such as <code>4321</code>.</p>';
     } else if (val == 'float') {
-        hidden.html('<p>A float field can only contain numbers as well as a decimal point, for example <code>89.45</code></p>');
+        html = '<p>A float field can only contain numbers as well as a decimal point, for example <code>89.45</code></p>';
     } else if (val == 'datetime') {
         html = '<span>A date time field is used is used for values that contain both date and time parts, it is stored in the format <em>YYYY-MM-DD HH:MM:SS</em>, for example <code>2023-01-19 03:14:07</code></span><br>';
-        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="currentDate-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date & time at editing.</label>';
-        hidden.html(html);
+        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date & time at editing.</label>';
     }
+    hidden.html(html);
 }
 
 
