@@ -28,8 +28,8 @@ class Database {
 
     protected $tables = array(); // array of tables associated with user's company
     protected $struct = array(); // associative array where each table is a key and the value is a class table()
-    protected $name = null; // DB name e.g. db215537_EL
-    protected $company = null; // company associated with logged in user
+    protected $name = NULL; // DB name e.g. db215537_EL
+    protected $company = NULL; // company associated with logged in user
 
     public function __construct( $comp=null, $db ) {
 
@@ -54,9 +54,7 @@ class Database {
                     information_schema.key_column_usage
                 where
                     referenced_table_name is not null
-                    and table_schema = '%s' 
-                    and table_name like '%s_%%'
-                ", $this->get_name(), $this->get_company());
+                    and table_schema = '%s'", $this->get_name());
                 $results = $db->query($sql)->fetchAll();
                 $fks = array();
                 if ($results !== true) {
@@ -211,7 +209,7 @@ Class roperties:
 class Table {
 
     protected $fields = array();
-    protected $name = null;
+    protected $name = NULL;
     protected $is_history = false;
     protected $struct = array();
     
@@ -497,7 +495,7 @@ class Field {
             if (strpos($this->type, '(') !== false) {
                 return intval(str_replace(')', '', explode('(', $this->type)[1]));
             } else {
-                return null;
+                return NULL;
             }
         } else {
             return false;
@@ -523,9 +521,13 @@ class Field {
     // of the field, otherwise false
     public function get_unique_vals() {
         if ( $this->is_unique() ) {
-            $sql = sprintf("SELECT DISTINCT(`%s`) FROM %s.%s", $this->get_name(), DB_NAME_EL, $this->get_table());
+
+            if ( !isset( $db ) ) $db = get_db_conn();
+
+            $sql = sprintf("SELECT DISTINCT(`%s`) FROM `%s`.`%s`", $this->get_name(), DB_NAME, $this->get_table());
             $result = $db->query($sql)->fetchAll();
             $vals = array();
+
             if ($result) {
                 foreach($result as $row) {
                     $vals[] = $row[$this->name];
@@ -550,12 +552,16 @@ class Field {
     // field can take assuming it is an fk
     public function get_fks() {
         if ($this->is_fk) {
+
+            if ( !isset( $db ) ) $db = get_db_conn();
+
             $ref = explode('.',$this->fk_ref);
             $ref_table = $ref[0];
             $ref_field = $ref[1];
-            $sql = sprintf( "SELECT DISTINCT(%s) from %s.%s ORDER BY %s", $ref_field, DB_NAME_EL, $ref_table, $ref_field );
+            $sql = sprintf( "SELECT DISTINCT(`%s`) from `%s`.`%s` ORDER BY `%s`", $ref_field, DB_NAME, $ref_table, $ref_field );
             $res = $db->query($sql)->fetchAll();
             $vals = array();
+
             foreach ($res as $row) {
                 $vals[] = $row[$ref_field];
             }
@@ -564,6 +570,7 @@ class Field {
             } else {
                 return false;
             }
+
         } else {
             return false;
         }

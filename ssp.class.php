@@ -301,7 +301,7 @@ class SSP {
      *  @param  string $whereAll WHERE condition to apply to all queries
      *  @return array          Server-side processing response array
      */
-    static function complex ( $request, $conn, $table, $primaryKey, $columns, $whereResult=null, $whereAll=null )
+    static function complex ( $request, $conn, $table, $primaryKey, $columns, $whereResult=NULL, $whereAll=NULL )
     {
         $bindings = array();
         $db = self::db( $conn );
@@ -381,10 +381,10 @@ class SSP {
      * @param  string   $sql SQL query to execute.
      * @return array         Result from the query (all rows)
      */
-    static function sql_exec ( $db, $bindings, $sql=null )
+    static function sql_exec ( $db, $bindings, $sql=NULL )
     {
         // Argument shifting
-        if ( $sql === null ) {
+        if ( $sql === NULL ) {
             $sql = $bindings;
         }
 

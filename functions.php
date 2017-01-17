@@ -48,7 +48,7 @@ function get_db_setup() {
     require_once "db.class.php"; // Database class
 
 
-    if ( !isset( $_SESSION['db'] ) ) {
+    if ( !isset( $_SESSION['db'] ) || !is_a( $_SESSION['db'], 'Database' ) ) {
 
         // Get setup
         $setup = new Database( ACCT, get_db_conn() );
@@ -62,13 +62,47 @@ function get_db_setup() {
 
 
 
+
+/**
+ *
+ * Refresh DB class once it has been changed such
+ * as after a table is created/deleted/edited.
+ * Will update the $_SESSION['db'] global var
+ * 
+ * @para void
+ * 
+ * @return void
+ *
+*/
+function refresh_db_setup() {
+
+    $_SESSION['db'] = NULL;
+    get_db_setup();
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * Generate HTML for viewing a table
  *
  * @param $table str database table to view
  *
  * @return will echo proper HTML
-
+ *
 */
 function build_table( $table ) {
 
@@ -232,6 +266,48 @@ function get_form_table_row($table) {
 <?php }
 
 
+
+
+
+
+/**
+ * Generates a dropbown with available values for a foreign key
+ * A foreign key field must take on a value from the table and
+ * column that it references.  This function will generate the
+ * HTML for a select dropdown that is filled with those
+ * available column values.
+ *
+ * @param $field_class field class, the field (assumed to be an
+ *        FK) for which to find the available column values for
+ *
+ * @return HTML for a select dropdown if the field is an FK; if 
+ * field is not an FK or if the reference table/column doesn't 
+ * exist, nothing is returned.
+ *
+*/
+function get_fks_as_select($field_class) {
+
+        $fks = $field_class->get_fks(); // get the available values
+        $name = $field_class->get_name();
+        $ref_id = $field_class->get_fk_field(); // get the field the FK references
+        if ( isset($fks) && isset($ref_id) ) {
+            echo '<select class="form-control" id="' . $name . '" name="' . $name . '">';
+            foreach ($fks as $fk) {
+                echo sprintf("<option value='%s'>%s</option>", $fk, $fk);
+            }
+            echo '</select>';
+        }
+
+}
+
+
+
+
+
+
+
+
+
 /* Function called by AJAX when user attempts to add table
 
 Will generate both the standard data table and its
@@ -266,25 +342,28 @@ name to avoid clashing.
 
 Parameters:
 ===========
-- $_GET['dat'] : obj of form data (key: col name, val: value)
+- $ajax_data['dat'] : obj of form data (key: col name, val: value)
                  at a minimum will have the following keys:
                  - table_name (safe name)
                  - name-1 (field name)
                  - type-1 (field type)
-- $_GET['field_num'] : number of fields being added
+- $ajax_data['field_num'] : number of fields being added
 */
-function add_table_to_db() {
+function add_table_to_db( $ajax_data ) {
 
 
     $db = get_db_setup();
-    $field_num = $_GET['field_num'];
-    $data = $_GET['dat'];
+    $field_num = $ajax_data['field_num'];
+    $data = $ajax_data['dat'];
     $tables = $db->get_tables(); // list of tables in DB
 
 
     // make sure we have everything
     if ( isset( $data['table_name'] ) && !empty( $data['table_name'] ) ) {
         $table = $data['table_name'];
+    } else {
+        echo json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
+        return;
     }
 
 
@@ -478,14 +557,18 @@ function add_table_to_db() {
 
     // Execute
     if ( $stmt_table->execute() && $stmt_table_history->execute() ) {
+        refresh_db_setup(); // update DB class
+
         if ( DEBUG ) {
             echo json_encode(array("msg" => "Table <code>$table</code> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
         } else {
             echo json_encode(array("msg" => "Table <code>$table</code> properly generated!", "status" => true, "hide" => true ));
         }
-    } else {
-        if ( $stmt_table->errorInfo()[2] == null ) {
-            // drop table because it was properly generated but the history version wasn't
+
+    } else { // if error
+
+        // drop table because it was properly generated but the history version wasn't
+        if ( $stmt_table->errorInfo()[2] == NULL ) {
             $db_conn->prepare("DROP TABLE `$table`")->execute();
         }
 
@@ -501,6 +584,65 @@ function add_table_to_db() {
 
 
 }
+
+
+
+
+
+
+/**
+ *
+ * Function called by AJAX when user attempts to delete table
+ * Will delete the specified table, both the standard and the
+ * history counterpart.
+ *
+ * @param $table_name str - table name to be deleted
+ *
+ * @return void
+ * 
+*/
+function delete_table_from_db( $table_name ) {
+
+    if ( !isset( $table_name ) ) {
+        echo json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
+        return;
+    }
+
+    $db = get_db_setup();
+
+
+    // check if table has a key that is referenced as a PK in another table
+    // if so, the ref table must be deleted first
+    $table_class = $db->get_table( $table_name );
+    $refs = $table_class->get_ref();
+
+    if ($refs) {
+        $msg = "This table is referenced by:<ul>";
+
+        foreach($refs as $ref) {
+            $ref_table = explode('.',$ref)[0];
+            $ref_field = explode('.',$ref)[1];
+            $msg .= "<li>field <code>$ref_field</code> in table <code>$ref_table</code></li>";
+
+        }
+
+        $msg .="</ul><br>You must delete those fields or tables first, before deleting this table.";
+        echo json_encode(array("msg"=>$msg, "status"=>false, "hide" => false));
+        return;
+    } 
+
+
+    echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+    return;
+
+
+
+
+
+
+}
+
+
 
 
 

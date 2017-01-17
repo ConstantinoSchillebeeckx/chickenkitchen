@@ -536,7 +536,7 @@ function deleteTableModal(tableName) {
     event.preventDefault(); // cancel form submission
 
     jQuery("#deleteTableID").html( "<code>" + tableName + "</code>" ); // set PK message
-    jQuery("#confirmDeleteTable").attr("onclick", "deleteTable('" + tableName + "')");
+    jQuery("#confirmDeleteTable").attr("onclick", "deleteTable(event, '" + tableName + "')");
 
     jQuery('#deleteTableModal').modal('toggle'); // show modal
 
@@ -612,7 +612,7 @@ function addField() {
 Function called when "Create table" button is clicked
 
 */
-function addTable() {
+function addTable( event ) {
     
     event.preventDefault(); // cancel form submission
     jQuery('#submit_handle').click(); // needed to validate form
@@ -633,6 +633,51 @@ function addTable() {
     }
 
 }
+
+
+
+
+
+/*
+
+onclick event handler for delete table button called from edit table page
+
+Parameters:
+-----------
+- tableName : str
+              table name to be deleted
+
+Returns:
+-------
+- will call doAJAX which does all the proper message handling
+
+*/
+function deleteTable(event, tableName) {
+
+    event.preventDefault(); // cancel form submission
+
+    var data = {
+        "action": "deleteTable",
+        "table_name": tableName
+    }
+
+    console.log(data);
+
+
+    // send data to server
+    doAJAX(data, function() {
+        showMsg(ajaxResponse);
+        console.log(ajaxResponse);
+    });
+
+    jQuery('#deleteTableModal').modal('toggle'); // hide modal
+}
+
+
+
+
+
+
 
 
 

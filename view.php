@@ -25,6 +25,9 @@ ssp.class.php script to query the database and format all the results properly f
 library
 
 */ ?>
+
+<div class="alertContainer"></div> <!-- automatically filled by showMsg() -->
+
 <div class="row">
     <div class=<?php echo isset($_GET['table']) ? "col-sm-8" : "col-sm-12" ?>>
         <h1><?php echo isset($_GET['table']) ? "Viewing table <code>" . $_GET['table'] . "</code>" : "View tables" ?></h1>
