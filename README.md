@@ -25,6 +25,8 @@ A simplified CRUD front-end with built in visualization features.
 
 ## Database setup
 
+- database must be `utf8`
+
 - Each *company* or *account* gets their own database name
 - Each table always has a history counterpart which is named the same as table but with an appended '_history'
 - Each table must at a minimum have a primary key, it'll be named `_UID int(11)`
