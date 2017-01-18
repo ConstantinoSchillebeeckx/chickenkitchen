@@ -82,11 +82,46 @@ class Database {
         }
     }
 
-    // return array of full table names
-    public function get_tables() {
+    // return array of all table names
+    // including data and history tables
+    public function get_all_tables() {
         return $this->tables;
     }
-    
+
+    // return array of tables names
+    // that are all history tables, if 
+    // none exist return false
+    public function get_history_tables() {
+        $hist = [];
+        foreach ( $this->get_all_tables() as $table ) {
+            $is_history = $this->get_table( $table )->is_history();
+            if ( $is_history ) $hist[] = $table;
+        }
+
+        if ( count( $hist ) ) {
+            return $hist;
+        } else {
+            return false;
+        }
+    }
+
+    // return array of tables names
+    // that are all data tables (not history)   
+    // if none exist return false
+    public function get_data_tables() {
+        $data_tables = [];
+        foreach ( $this->get_all_tables() as $table ) {
+            $is_history = $this->get_table( $table )->is_history();
+            if ( !$is_history ) $data_tables[] = $table;
+        }
+
+        if ( count( $data_tables ) ) {
+            return $data_tables;
+        } else {
+            return false;
+        }
+    }
+
     // return assoc array of table struct
     public function get_struct() {
         return $this->struct;
@@ -105,7 +140,7 @@ class Database {
     // return field name that is pk, if it exists
     // otherwise return false
     public function get_pk($table) {
-        if ( in_array( $table, $this->get_tables() ) ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
             $tmp = $this->get_table($table);
             return $tmp->get_pk();
         } else {
@@ -115,7 +150,7 @@ class Database {
 
     // given a table (name) return its Table class
     public function get_table($table) {
-        if ( in_array( $table, $this->get_tables() ) ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
             return $this->get_struct()[$table];
         } else {
             return false;
@@ -125,7 +160,7 @@ class Database {
     // given a table (name) return the columns that are unique,
     // if any, as an array
     public function get_unique($table) {
-        if ( in_array( $table, $this->get_tables() ) ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
             $tmp = $this->get_struct()[$table];
             if ($tmp->get_unique()) {
                 return $tmp->get_unique();
@@ -140,7 +175,7 @@ class Database {
 
     // given a table (name) and field return its Field class
     public function get_field($table, $field) {
-        if ( in_array( $table, $this->get_tables() ) ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
             $table_class = $this->get_struct()[$table];
             return $table_class->get_field($field);
         } else {
@@ -150,7 +185,7 @@ class Database {
 
     // given a table (name) return its full name (with prepended DB)
     public function get_table_full_name($table) {
-        if ( in_array( $table, $this->get_tables() ) ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
             $table_class = $this->get_table($table);
             return $table_class->get_full_name();
         } else {
@@ -160,7 +195,7 @@ class Database {
 
     // given a table (name) return fields in table as array
     public function get_fields($table) {
-        if ( in_array( $table, $this->get_tables() ) ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
             return $this->get_struct()[$table]->get_fields();
         } else {
             return false;
@@ -179,13 +214,41 @@ class Database {
     // assumed to have appended _history
     // to table name
     public function has_history($table) {
-        return in_array($table . "_history", $this->get_tables());
+        return in_array($table . "_history", $this->get_all_tables());
     }
 
     public function asJSON() {
         return json_encode(objectToArray($this)) . ';'; // ';' so that JS doesn't complain
     }
 
+
+    // like get_ref() but only returns non-history tables
+    // check if table contains a field that is
+    // referenced by an FK
+    // if so, return the field name(s) [table.col] as an array
+    public function get_data_ref($table) {
+        $history_tables = $this->get_history_tables();
+        $table_class = $this->get_table( $table );
+        $fields = $table_class->get_fields();
+        $fks = array();  
+
+        foreach($fields as $field) {
+            $field_class = $table_class->get_field($field);
+            if ($field_class->is_ref()) {
+
+                $ref = explode('.', $field_class->get_ref());
+                $ref_table = $ref[0];
+                $ref_field = $ref[1];
+                if ( !in_array( $ref_table, $history_tables ) ) $fks[] = $ref;
+            }
+        }
+
+        if ( count($fks) > 0 ) {
+            return $fks;
+        } else {
+            return false;
+        }
+    }
 }
 
 // http://stackoverflow.com/a/2476954/1153897

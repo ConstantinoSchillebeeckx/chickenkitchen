@@ -144,15 +144,15 @@ function build_table( $table ) {
         </script>
 
     <?php } else {
-        echo 'Table doesn\'t exist; list of available tables are: ' . implode(', ', $db->get_tables());
+        echo 'Table doesn\'t exist; list of available tables are: ' . implode(', ', $db->get_data_tables());
     }
 
 }
 
 
 /**
- * Function will generate HTML as <ul> of all available tables
- * in the database along with a link to view them.
+ * Function will generate HTML as <ul> of all available 
+ * data tables in the database along with a link to view them.
  * 
  * @param void
  *
@@ -162,18 +162,23 @@ function build_table( $table ) {
 function list_tables() {
 
     $db = get_db_setup();
-    $tables = $db->get_tables();
+    $tables = $db->get_data_tables();
 
     echo '<div class="col-sm-12">';
-    echo '<ul>';
 
-    foreach( $tables as $table ) {
-        if ( !$db->get_table( $table )->is_history() ) {
+    if ( $tables ) {
+
+        echo '<ul>';
+
+        foreach( $tables as $table ) {
             echo "<li><a href='?table=$table'>$table</a></li>";
         }
+
+        echo '</ul>';
+    } else {
+        echo "No tables present in database.";
     }
 
-    echo '</ul>';
     echo '</div>';
 
 
@@ -355,7 +360,7 @@ function add_table_to_db( $ajax_data ) {
     $db = get_db_setup();
     $field_num = $ajax_data['field_num'];
     $data = $ajax_data['dat'];
-    $tables = $db->get_tables(); // list of tables in DB
+    $tables = $db->get_all_tables(); // list of tables in DB
 
 
     // make sure we have everything
@@ -559,10 +564,11 @@ function add_table_to_db( $ajax_data ) {
     if ( $stmt_table->execute() && $stmt_table_history->execute() ) {
         refresh_db_setup(); // update DB class
 
+        // XXX hard coded links
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "Table <code>$table</code> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
+            echo json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
         } else {
-            echo json_encode(array("msg" => "Table <code>$table</code> properly generated!", "status" => true, "hide" => true ));
+            echo json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
         }
 
     } else { // if error
@@ -603,18 +609,29 @@ function add_table_to_db( $ajax_data ) {
 */
 function delete_table_from_db( $table_name ) {
 
+    $db = get_db_setup();
+    $data_tables = $db->get_data_tables();
+    $table_name_history = $table_name . '_history';
+
+
     if ( !isset( $table_name ) ) {
         echo json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
         return;
     }
 
-    $db = get_db_setup();
+    if ( !in_array( $table_name, $db->get_data_tables() ) ) {
+        echo json_encode(array("msg" => "Table does not exist.", "status" => false, "hide" => false)); 
+        return;
+    } 
 
+    if ( !in_array( $table_name_history, $db->get_history_tables() ) ) {
+        echo json_encode(array("msg" => "History table does not exist.", "status" => false, "hide" => false)); 
+        return;
+    } 
 
     // check if table has a key that is referenced as a PK in another table
     // if so, the ref table must be deleted first
-    $table_class = $db->get_table( $table_name );
-    $refs = $table_class->get_ref();
+    $refs = $db->get_data_ref( $table_name );
 
     if ($refs) {
         $msg = "This table is referenced by:<ul>";
@@ -622,18 +639,40 @@ function delete_table_from_db( $table_name ) {
         foreach($refs as $ref) {
             $ref_table = explode('.',$ref)[0];
             $ref_field = explode('.',$ref)[1];
-            $msg .= "<li>field <code>$ref_field</code> in table <code>$ref_table</code></li>";
+            if ( in_array( $ref_table, $data_tables ) ) { // only alert about references to data tables (instead of history tables)
+                $msg .= "<li>field <code>$ref_field</code> in table <code>$ref_table</code></li>";
+            }
 
         }
 
-        $msg .="</ul><br>You must delete those fields or tables first, before deleting this table.";
+        $msg .="</ul><br>You must delete those field(s)/table(s) first, or remove the foreign key on this table before deleting this table.";
         echo json_encode(array("msg"=>$msg, "status"=>false, "hide" => false));
         return;
     } 
 
+    // table is safe to delete
+    // delete history version first since it has a FK
+    $db_conn = get_db_conn();
+    $q1 = $db_conn->query("DROP TABLE `$table_name_history`");
+    $q2 = $db_conn->query("DROP TABLE `$table_name`");
 
-    echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
-    return;
+    if ( count( $q1 ) == 1 && count( $q2 ) == 1 ) { // success
+        echo json_encode(array("msg" => "The table <code>$table_name</code> was properly deleted.", "status" => true, "hide" => true));
+        refresh_db_setup();
+        return;
+    } else {
+        if ( DEBUG ) {
+            echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false, "q1" => $q1, "q2" => $q2 ));
+            return;
+        } else {
+            echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+            return;
+        }
+    }
+
+
+
+
 
 
 

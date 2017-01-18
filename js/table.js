@@ -668,6 +668,7 @@ function deleteTable(event, tableName) {
     doAJAX(data, function() {
         showMsg(ajaxResponse);
         console.log(ajaxResponse);
+        if (ajaxResponse.status) jQuery('#body').remove(); // remove table if properly deleted
     });
 
     jQuery('#deleteTableModal').modal('toggle'); // hide modal
