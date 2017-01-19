@@ -115,7 +115,7 @@ function build_table( $table ) {
     // generate table HTML
     if ( isset( $db ) && isset( $table ) && $table_class ) {
   
-        $fields = $db->get_fields($table); 
+        $fields = $db->get_all_fields($table); 
         $hidden = $table_class->get_hidden_fields();
 
         ?>
@@ -294,17 +294,88 @@ function get_fks_as_select($field_class) {
 
         $fks = $field_class->get_fks(); // get the available values
         $name = $field_class->get_name();
-        $ref_id = $field_class->get_fk_field(); // get the field the FK references
-        if ( isset($fks) && isset($ref_id) ) {
+        $ref = $field_class->get_fk_ref(); // get the [table, field] the FK references
+        if ( $fks !== false && isset($ref_id) ) {
             echo '<select class="form-control" id="' . $name . '" name="' . $name . '">';
             foreach ($fks as $fk) {
                 echo sprintf("<option value='%s'>%s</option>", $fk, $fk);
             }
             echo '</select>';
+        } else {
+            $ref_field = $ref[1];
+            $ref_table = $ref[0];
+            echo "This field is a foreign key and references the field <code>$ref_field</code> in the table <code>$ref_table</code> which is currently empty. Please enter some values for <code>$ref_field</code> first.";
         }
 
 }
 
+
+
+
+/**
+ * Function called by AJAX when user adds item with modal button
+ *
+ * @param assoc arr $aja_data with keys: table, pk, dat
+ *        dat -> obj of form data (key: col name, val: value)
+ *
+ * @return void
+*/
+function add_item_to_db( $ajax_data ) {
+
+    $table = $ajax_data['table'];
+    $dat = $ajax_data['dat'];
+    $pk = $ajax_data['pk'];
+    $db = get_db_setup();
+    $sent_fields = array_keys( $dat );
+
+    // check that we have everything
+    if ( !isset( $table ) || empty( $table) || !isset( $pk ) || empty( $pk ) ) {
+        echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
+        return;
+    }
+
+    $all_fields = $db->get_all_fields( $table );
+    $required_fields = $db->get_required_fields( $table );
+
+    // check that we have all required fields
+    if ( array_intersect( $sent_fields, $required_fields ) != $required_fields ) {
+        echo json_encode(array("msg" => sprintf('Please ensure you\'ve filled out all required fields including: <code>%s</code>.', implode("</code>, <code>", $required_fields) ), "status" => false, "hide" => false));
+        return;
+    }
+
+
+    // go through each field and check that it is valid
+    $bindings = [];
+    foreach ( $sent_fields as $field_name => $field_val ) {
+
+        $field_type = $db->get_field( $table, $field_name );
+
+        // validate field value
+        $check = validate_field_value( $field_type, $field_val );
+        if ( $check !== true ) {
+            echo $check;
+            return;
+        }
+    
+        // generate SQL for data and history table
+        // TODO ...
+        if ( $prep && $prep_hist ) {
+            if ($dat[$pk]) {
+                echo json_encode(array("msg" => sprintf('Item <code>%s</code> successfully added to LIMS.', $dat[$pk]), "status" => true, "hide" => true, "log"=>$stmt ));
+                return;
+            } else {
+                echo json_encode(array("msg" => 'Item successfully added to LIMS.', "status" => true, "hide" => true, "log"=>$wpdb ));
+                return;
+            }
+        } else {
+            echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false, "log" => array($prep, $types, $dat, $full_name, $wpdb ) ));
+            return;
+        }
+    }
+
+    echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
+    return;
+}
 
 
 
@@ -356,11 +427,14 @@ Parameters:
 */
 function add_table_to_db( $ajax_data ) {
 
-
+    // init
     $db = get_db_setup();
     $field_num = $ajax_data['field_num'];
     $data = $ajax_data['dat'];
-    $tables = $db->get_all_tables(); // list of tables in DB
+    $fields = []; // list of fields in table
+    $sql_fields = []; // sql command for each field, concat for full sql statement
+    $bindings = []; // PDO bindings for default values
+    $history_fields = []; // column name and type for history table
 
 
     // make sure we have everything
@@ -371,35 +445,14 @@ function add_table_to_db( $ajax_data ) {
         return;
     }
 
-
-
-    // table name must not already exist
-    if ( in_array( $table, $tables ) ) {
-        echo json_encode(array("msg" => "Table name <code>$table</code> already exists, please choose another.", "status" => false, "hide" => false)); 
-        return;
-    }
-
-    // ensure table name is only allowed letters
-    if ( !preg_match( '/^[a-z0-9\-_]+$/i', $table ) ) {
-        echo json_encode(array("msg" => "Table name may only include letters, numbers, hypens and underscores, please choose another.", "status" => false, "hide" => false)); 
-        return;
-    }
-
-    // table name can only be max 64 chars
-    if ( strlen( $table ) > 64 ) {
-        echo json_encode(array("msg" => "Table name <code>$table</code> is too long, please choose a shorter name.", "status" => false, "hide" => false)); 
-        return;
-    }
-    if ( empty( $table ) ) {
-        echo json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
+    // validate table name
+    $check = validate_name( $table, $db->get_all_tables() );
+    if ( $check !== true ) {
+        echo $check;
         return;
     }
 
     // check field names for errors
-    $fields = []; // list of fields in table
-    $sql_fields = []; // sql command for each field, concat for full sql statement
-    $bindings = []; // PDO bindings for default values
-    $history_fields = []; // column name and type for history table
     for( $i = 1; $i<=$field_num; $i++ ) {
 
         $field_name = $data['name-' . $i];
@@ -407,7 +460,8 @@ function add_table_to_db( $ajax_data ) {
         $field_current = isset($data['currentDate-' . $i]) ? $data['currentDate-' . $i] : false;
         $field_required = isset($data['required-' . $i]) ? $data['required-' . $i] : false;
         $field_unique = isset($data['unique-' . $i]) ? $data['unique-' . $i] : false;
-        $field_long_string = isset($data['longString-' . $i]) ? true : false;
+        $field_long_string = isset($data["longString-$i"]) ? true : false;
+        $field_description = isset($data["description-$i"]) ? $data["description-$i"] : false;
         if ( isset( $data["default-$i"] ) && $data["default-$i"] !== "" ) {
             $field_default = $data["default-$i"];
             if ( $field_default === 'true' ) $field_default = true; // cant get AJAX to send as boolean
@@ -416,44 +470,18 @@ function add_table_to_db( $ajax_data ) {
         }
 
 
-        // check uniqueness
-        if ( in_array( $field_name, $fields ) ) {
-            echo json_encode(array("msg" => "Field name <code>$field_name</code> is not unique, please choose another name.", "status" => false, "hide" => false)); 
-            return;
-        }
-
-        // check allowed chars
-        if ( !preg_match( '/^[a-z0-9\-_ ]+$/i', $field_name ) ) {
-            echo json_encode(array("msg" => "Field name <code>$field_name</code> may only include letters, numbers, hypens, underscores and spaces, please choose another.", "status" => false, "hide" => false)); 
-            return;
-        }
-
-        // check name length
-        if ( strlen( $field_name ) > 64 ) {
-            echo json_encode(array("msg" => "Field name <code>$field_name</code> is too long, please choose a shorter name.", "status" => false, "hide" => false)); 
-            return;
-        }
-        if ( empty( $field_name ) ){
-            echo json_encode(array("msg" => "Field name cannot be empty.", "status" => false, "hide" => false)); 
+        // validate field name
+        $check = validate_name( $field_name, $fields );
+        if ( $check !== true ) {
+            echo $check;
             return;
         }
 
         // ensure default field matches field type
         if ( $field_default && count( $field_default) > 0 && is_string( $field_default ) ) {
-            if ( $field_type == 'int' && !preg_match('/^[0-9]+$/i', $field_default)) {
-                echo json_encode(array("msg" => "Only numbers are allowed as a default value if selecting an integer type field; please adjust the default value <code>$field_default</code>.", "status" => false, "hide" => false));
-                return;
-            } else if ( $field_type == 'varchar' && !preg_match('/^[a-z0-9_~\-!@#\$%\^&\*\(\)\. ]+$/i', $field_default)) {
-                echo json_encode(array("msg" => "Only alphanumeric and special characters are allowed as a default value if selecting an string type field; please adjust the default value <code>$field_default</code>.", "status" => false, "hide" => false));
-                return;
-            } else if ( $field_type == 'float' && !preg_match('/^[0-9\.]+$/i', $field_default)) {
-                echo json_encode(array("msg" => "Only numbers are allowed as a default value if selecting a float type field; please adjust the default value <code>$field_default</code>.", "status" => false, "hide" => false));
-                return;
-            } else if ( $field_type == 'date' && !preg_match('/(\d{4})-(\d{2})-(\d{2})/', $field_default)) {
-                echo json_encode(array("msg" => "Default must be formatted as <code>YYYY-MM-DD</code> if selecting a date type field; please adjust the default value <code>$field_default</code>.", "status" => false, "hide" => false));
-                return;
-            } else if ( $field_type == 'datetime' && !preg_match('/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/', $field_default)) {
-                echo json_encode(array("msg" => "Default must be formatted as <code>YYYY-MM-DD hh:mm:ss</code> if selecting a datetime type field; please adjust the default value <code>$field_default</code>.", "status" => false, "hide" => false));
+            $check = validate_field_value( $field_type, $field_default );
+            if ( $check !== true ) {
+                echo $check;
                 return;
             }
         }
@@ -527,11 +555,11 @@ function add_table_to_db( $ajax_data ) {
         // add comment if it exists
         if ($comment) $sql_str .= $comment;
 
-        // add index if not long string
-        if ( $field_long_string == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
+        // add index if not long string and not unique
+        if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
 
         // if FK type was requested, add the constraint
-        if ($is_fk) $sql_str .= sprintf(", FOREIGN KEY fk_%s_%s(`%s`) REFERENCES `%s`(`%s`) ON DELETE RESTRICT ON UPDATE CASCADE", substr(md5(rand()), 0, 4), $field_name, $field_name, $field_name, $fk_table, $fk_col);
+        if ($is_fk) $sql_str .= sprintf(", FOREIGN KEY fk_%s_%s(`%s`) REFERENCES `%s`(`%s`) ON DELETE RESTRICT ON UPDATE CASCADE", substr(md5(rand()), 0, 4), $field_name, $field_name, $fk_table, $fk_col);
 
         // combine sql for field
         $sql_fields[] = $sql_str;
@@ -590,6 +618,79 @@ function add_table_to_db( $ajax_data ) {
 
 
 }
+
+
+
+/**
+ * Will validate if the field value matches the
+ * allowed characters for the field type. If so,
+ * true is returned, otherwise an error message
+ * is returned.
+ *
+ * @param $field_type str type of field (int,
+ *        varchar, float, date, datetime)
+ *        $field_val str value of field
+ *
+ * @return true if no error, error message if
+ *         error
+*/
+function validate_field_value($field_type, $field_val) {
+
+    if ( $field_type == 'int' && !preg_match('/^[0-9]+$/i', $field_val)) {
+        return json_encode(array("msg" => "Only numbers are allowed as a default value if selecting an integer type field; please adjust the default value <code>$field_val</code>.", "status" => false, "hide" => false));
+    } else if ( $field_type == 'varchar' && !preg_match('/^[a-z0-9_~\-\'\"!@#\$%\^&\*\(\)\. ]+$/i', $field_val)) {
+        return json_encode(array("msg" => "Only alphanumeric and special characters are allowed as a default value if selecting an string type field; please adjust the default value <code>$field_val</code>.", "status" => false, "hide" => false));
+    } else if ( $field_type == 'float' && !preg_match('/^[0-9\.]+$/i', $field_val)) {
+        return json_encode(array("msg" => "Only numbers are allowed as a default value if selecting a float type field; please adjust the default value <code>$field_val</code>.", "status" => false, "hide" => false));
+    } else if ( $field_type == 'date' && !preg_match('/(\d{4})-(\d{2})-(\d{2})/', $field_val)) {
+        return json_encode(array("msg" => "Default must be formatted as <code>YYYY-MM-DD</code> if selecting a date type field; please adjust the default value <code>$field_val</code>.", "status" => false, "hide" => false));
+    } else if ( $field_type == 'datetime' && !preg_match('/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/', $field_val)) {
+        return json_encode(array("msg" => "Default must be formatted as <code>YYYY-MM-DD hh:mm:ss</code> if selecting a datetime type field; please adjust the default value <code>$field_val</code>.", "status" => false, "hide" => false));
+    }
+    return true;
+
+}
+
+
+/**
+ * Ensure table/field name is valid by checking:
+ * - it doesn't already exist
+ * - matches allowed chars [a-z0-9\-_ ]
+ * - less than 64 chars long
+ * - not empty
+ *
+ * @param str $name name of table
+ *        array $names list of current
+ *        names not allowed (for uniqueness
+ *        check)
+ *
+ * @return true if table name ok, error
+ *         message otherwise
+*/
+function validate_name( $name, $names ) {
+
+    // table name must not already exist
+    if ( in_array( $name, $names ) ) {
+        return json_encode(array("msg" => "Table name <code>$name</code> already exists, please choose another.", "status" => false, "hide" => false)); 
+    }
+
+    // ensure table name is only allowed letters
+    if ( !preg_match( '/^[a-z0-9\-_ ]+$/i', $name ) ) {
+        return json_encode(array("msg" => "Table name may only include letters, numbers, hypens, spaces and underscores, please choose another.", "status" => false, "hide" => false)); 
+    }
+
+    // table name can only be max 64 chars
+    if ( strlen( $name ) > 64 ) {
+        return json_encode(array("msg" => "Table name <code>$name</code> is too long, please choose a shorter name.", "status" => false, "hide" => false)); 
+    }
+    if ( empty( $name ) ) {
+        return json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
+    }
+
+    return true;
+
+}
+
 
 
 

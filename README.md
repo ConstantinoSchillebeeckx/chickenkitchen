@@ -13,7 +13,8 @@ A simplified CRUD front-end with built in visualization features.
 
 ## TODO
 - [x] create new table
-- [ ] delete table
+- [x] delete table
+- [ ] add item in table
 - [ ] edit item in table
 - [ ] delete item in table
 - [ ] hyper links for quick cell filtering

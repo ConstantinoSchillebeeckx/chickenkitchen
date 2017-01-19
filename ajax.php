@@ -9,11 +9,16 @@
 
     if( isset( $_GET['action'] ) && !empty( $_GET['action'] ) ) {
 
-        if ( $_GET['action'] == 'addTable' && isset( $_GET['field_num'] ) && isset( $_GET['dat'] ) && isset( $_GET['dat']['table_name'] ) ) {
+        $action = $_GET['action'];
+
+        if ( $action == 'addTable' && isset( $_GET['field_num'] ) && isset( $_GET['dat'] ) && isset( $_GET['dat']['table_name'] ) ) {
             add_table_to_db( $_GET ); // add a new table
             $error = false;
-        } else if ( $_GET['action'] == 'deleteTable' && isset( $_GET['table_name'] ) ) {
+        } else if ( $action == 'deleteTable' && isset( $_GET['table_name'] ) ) {
             delete_table_from_db( $_GET['table_name'] ); // delete existing table
+            $error = false;
+        } else if ( $action == 'addItem' ) {
+            add_item_to_db( $_GET );
             $error = false;
         }
     

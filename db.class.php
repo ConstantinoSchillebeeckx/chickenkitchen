@@ -193,10 +193,19 @@ class Database {
         }
     }
 
-    // given a table (name) return fields in table as array
-    public function get_fields($table) {
+    // given a table return all fields in table as array
+    public function get_all_fields($table) {
         if ( in_array( $table, $this->get_all_tables() ) ) {
             return $this->get_struct()[$table]->get_fields();
+        } else {
+            return false;
+        }
+    }
+
+    // given a table return all fields in table as array
+    public function get_required_fields($table) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            return $this->get_struct()[$table]->get_required();
         } else {
             return false;
         }
@@ -411,6 +420,28 @@ class Table {
 
 
 
+    // return an array of fields that are
+    // are required in the table (cannot
+    // be null) otherwise return false
+    // NOTE: this will only return non-hidden
+    // fields (e.g. ignores _UID)
+    public function get_required() {
+        $info = $this->get_struct();
+        $tmp = array();
+        foreach ($info as $k => $v) { // $k = field name, $v Field class
+            if ( $v->is_required() && $v->is_hidden() == false ) {
+                array_push($tmp, $k);
+            }
+        }
+
+        if ( count($tmp) > 0 ) {
+            return $tmp;
+        } else {
+            return false;
+        }
+    }
+
+
     // pretty print
     public function show() {
         echo '<pre style="font-size:8px;">';
@@ -605,11 +636,15 @@ class Field {
     }
 
     // if a field is an fk, this will return
-    // the field it references
-    public function get_fk_field() {
-        $ref = explode('.',$this->fk_ref);
-        return $ref[1];
+    // the table & field it references
+    // in format [table, field]
+    public function get_fk_ref() {
+        if ( $this->is_fk ) {
+            return explode('.',$this->fk_ref);
+        }
+        return false;
     }
+
 
     // will return a list of possible values a
     // field can take assuming it is an fk

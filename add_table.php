@@ -25,9 +25,9 @@ if (isset($_GET['table'])) {
 
 <form class="form-horizontal" onsubmit="return false;">
   <div class="form-group">
-    <label class="col-sm-2 control-label">Table name</label>
+    <label class="col-sm-2 control-label">Table name*</label>
     <div class="col-sm-2">
-      <input type="text" class="form-control" id="table_name" name="table_name" placeholder="samples" required pattern="[A-Za-z0-9-_]+" title="Only letters, numbers, underscores and dashes allowed (no spaces)." maxlength="64">
+      <input type="text" class="form-control" id="table_name" name="table_name" placeholder="samples" required pattern="[A-Za-z0-9-_ ]+" title="Only letters, numbers, underscores, spaces and dashes allowed." maxlength="64">
     </div>
     <div class="col-sm-2">
       <button type="button" class="btn btn-default btn-info" onclick="addField()" id="add_field" >Add field</button>

@@ -89,9 +89,9 @@ function doAJAX(data, callback) {
             },
             error: function(xhr, status, error) {
                 ajaxResponse = xhr.responseText;
-                console.log(xhr);
-                console.log(status);
-                console.log(error);
+                if (DEBUG) console.log(xhr);
+                if (DEBUG) console.log(status);
+                if (DEBUG) console.log(error);
             },
             complete: function() {
                 callback();
@@ -314,7 +314,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         historyTable.destroy();
     }
 
-    console.log(data);
+    if (DEBUG) console.log(data);
 
     historyTable = jQuery(tableID).DataTable( {
         "retrieve": true,
@@ -488,7 +488,56 @@ function parseTableRow(rowIX) {
 */
 function addItemModal() {
     jQuery('#addItemModal').modal('toggle'); // show modal
+
+    // check if we should disable the submit button
+    //if ( jQuery('*:contains("This field is a foreign key")' ).length !== 0) jQuery('#confirmAddItem').prop('disabled', true);
 }
+
+
+
+
+
+/* Function handles form submission from add item modal
+When the 'Add item' button is clicked from the modal,
+this function makes an AJAX call to the server to add
+the item to the DB.
+*/
+function addItem( event ) {
+
+    event.preventDefault(); // cancel form submission
+
+    // ensure something is in the form
+    if (jQuery.isEmptyObject(getFormData('#addItemForm'))) {
+        showMsg({'msg':'Please specify something to add.', 'status':false, 'hide': false});
+    } else {
+
+        var data = {
+                "action": "addItem", 
+                "table": table, // var set by build_table() in functions.php
+                "pk": pk, // var set by build_table() in functions.php
+                "dat": getFormData('#addItemForm'), // form values
+        }
+
+        if (DEBUG) console.log(data)
+     
+        // send data to server
+        doAJAX(data, function() {
+            if (ajaxStatus) {
+                jQuery('#datatable').DataTable().draw('page'); // refresh table
+                showMsg(ajaxResponse);
+            } else {
+                showMsg({"msg":"There was an error adding the item, please try again.", "status": false, "hide": false});
+                if (DEBUG) console.log(ajaxResponse);
+            }
+        });
+    }
+    
+    jQuery('#addItemModal').modal('toggle'); // hide modal
+}
+
+
+
+
 
 
 /* Called on click of download button
@@ -550,7 +599,6 @@ Will add all the necessarry GUI fields for defining a given field
 var fieldNum = 0;
 function addField() {
     fieldNum += 1;
-            //'<button type="button" class="close" data-target="#field-' + fieldNum + '" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>',
     var dom = ['<div class="panel panel-default" style="margin-bottom:20px;" id="field-' + fieldNum + '">',
             '<div class="panel-heading">',
             '<span class="panel-title">Field #' + fieldNum + '</span>',
@@ -562,7 +610,7 @@ function addField() {
             '<div class="col-sm-3">',
             '<input type="text" class="form-control" name="name-' + fieldNum + '" required pattern="[a-zA-Z0-9\-_ ]+" title="Letters, numbers, hypens and underscores and spaces only" maxlength="64">',
             '</div>',
-            '<label class="col-sm-1 control-label">Type</label>',
+            '<label class="col-sm-1 control-label">Type*</label>',
             '<div class="col-sm-2">',
             '<select class="form-control" onChange="selectChange(' + fieldNum + ')" id="type-' + fieldNum + '" name="type-' + fieldNum + '" required>',
             '<option value="" disabled selected style="display:none;"></option>',
@@ -581,6 +629,12 @@ function addField() {
             '<input type="text" class="form-control" name="default-' + fieldNum + '">',
             '</div>',
             '<div class="col-sm-offset-1 col-sm-6" id="hiddenType-' + fieldNum + '">',
+            '</div>',
+            '</div>',
+            '<div class="form-group">',
+            '<label class="col-sm-2 control-label" id="fieldLabel">Description</label>',
+            '<div class="col-sm-3">',
+            '<input type="text" class="form-control" name="description-' + fieldNum + '">',
             '</div>',
             '</div>',
             '<div class="form-group">',
@@ -623,12 +677,12 @@ function addTable( event ) {
                 "dat": getFormData('form'), // form values
                 "field_num": fieldNum // number of fields
         }
-        console.log(data);
+        if (DEBUG) console.log(data);
      
         // send data to server
         doAJAX(data, function() {
             showMsg(ajaxResponse);
-            console.log(ajaxResponse);
+            if (DEBUG) console.log(ajaxResponse);
         });
     }
 
@@ -661,13 +715,13 @@ function deleteTable(event, tableName) {
         "table_name": tableName
     }
 
-    console.log(data);
+    if (DEBUG) console.log(data);
 
 
     // send data to server
     doAJAX(data, function() {
         showMsg(ajaxResponse);
-        console.log(ajaxResponse);
+        if (DEBUG) console.log(ajaxResponse);
         if (ajaxResponse.status) jQuery('#body').remove(); // remove table if properly deleted
     });
 
@@ -699,7 +753,7 @@ function selectChange(id){
         html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
         html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
     } else if (val == 'varchar') {
-        html = '<span>A string field can be contain letters, numbers and various other characters such as commas or dashes; this field is limited to 255 utf8 characters or less (see below).</span>';
+        html = '<span>A string field can be contain letters, numbers and various other characters such as commas or dashes; this field is limited to 255 utf8 characters or less.</span>';
         html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="longString-' + id + '" onchange="toggleLongString(this)"> check if you plan on storing strings longer than 255 characters (limit 4096); note that if this is selected, this field <b>cannot be used as the reference for a foreign key nor can it be unique</b>.</label>';
     } else if (val == 'int') {
         html = '<p>An integer field can only contain whole numbers such as <code>4321</code>.</p>';

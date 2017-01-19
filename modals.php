@@ -15,7 +15,7 @@
  
             // update table name and data
             $table = $_GET['table'] . '_history'; 
-            $fields_hist = $db->get_fields($table); 
+            $fields_hist = $db->get_all_fields($table); 
             $table_class = $db->get_table($table);
             $hidden_hist = $table_class->get_hidden_fields();
             ?>
@@ -145,7 +145,7 @@
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 <h4 class="modal-title"><i class="fa fa-plus" aria-hidden="true"></i> Add item</h4>
             </div>
-            <form class="form-horizontal" onsubmit="addItem()" id="addItemForm">
+            <form class="form-horizontal" onsubmit="addItem( event )" id="addItemForm">
                 <div class="modal-body">
                         <?php get_form_table_row($_GET['table']); ?>
                 </div>

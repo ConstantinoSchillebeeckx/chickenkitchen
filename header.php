@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<?php require_once "config/db.php"; ?>
+
 <html lang="en"> 
 
     <head>
@@ -23,6 +25,7 @@
         <script type="text/javascript" src="js/jquery.TableCSVExport.js"></script>
         <script type="text/javascript" src="https://cdn.rawgit.com/mistic100/jQuery.extendext/0.1.2/jQuery.extendext.min.js"></script>
         <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery.query-builder/2.4.0/js/query-builder.min.js"></script>
+        <script type="text/javascript">var DEBUG = <?php echo DEBUG; ?></script>
 
     </head>
 
