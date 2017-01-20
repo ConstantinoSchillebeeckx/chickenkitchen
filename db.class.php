@@ -202,6 +202,16 @@ class Database {
         }
     }
 
+    // given a table return all visible (non-hidden)
+    // fields in table as array
+    public function get_visible_fields($table) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            return $this->get_struct()[$table]->get_visible_fields();
+        } else {
+            return false;
+        }
+    }
+
     // given a table return all fields in table as array
     public function get_required_fields($table) {
         if ( in_array( $table, $this->get_all_tables() ) ) {

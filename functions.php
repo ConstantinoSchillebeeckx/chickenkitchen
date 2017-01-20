@@ -313,7 +313,10 @@ function get_fks_as_select($field_class) {
 
 
 /**
- * Function called by AJAX when user adds item with modal button
+ * Function called by AJAX when user adds item with modal button.
+ * Will do all the proper error checking on the sent data and,
+ * if it all checks out, insert it into the datatable. Will then
+ * add the proper entry to the history counterpart.
  *
  * @param assoc arr $aja_data with keys: table, pk, dat
  *        dat -> obj of form data (key: col name, val: value)
@@ -322,11 +325,11 @@ function get_fks_as_select($field_class) {
 */
 function add_item_to_db( $ajax_data ) {
 
+    // init
     $table = $ajax_data['table'];
     $dat = $ajax_data['dat'];
     $pk = $ajax_data['pk'];
     $db = get_db_setup();
-    $sent_fields = array_keys( $dat );
 
     // check that we have everything
     if ( !isset( $table ) || empty( $table) || !isset( $pk ) || empty( $pk ) ) {
@@ -334,21 +337,24 @@ function add_item_to_db( $ajax_data ) {
         return;
     }
 
-    $all_fields = $db->get_all_fields( $table );
+    $sent_fields = array_keys( $dat );
+    $all_fields = $db->get_visible_fields( $table );
     $required_fields = $db->get_required_fields( $table );
 
-    // check that we have all required fields
-    if ( array_intersect( $sent_fields, $required_fields ) != $required_fields ) {
-        echo json_encode(array("msg" => sprintf('Please ensure you\'ve filled out all required fields including: <code>%s</code>.', implode("</code>, <code>", $required_fields) ), "status" => false, "hide" => false));
-        return;
-    }
 
-
-    // go through each field and check that it is valid
+    // go through each field of the table and check 
+    // that valid information was sent for it
     $bindings = [];
-    foreach ( $sent_fields as $field_name => $field_val ) {
+    $sql = sprintf( "INSERT INTO `%s` (`%s`) VALUES (:%s)", $table, implode("`,`", $sent_fields), implode(",:", $sent_fields) );
+    foreach ( $all_fields as $field_name ) {
+
+        if ( !empty( $required_fields ) && in_array( $field_name, $required_fields ) && !in_array( $field_name, $sent_fields ) ) {
+            echo json_encode(array("msg" => "Please ensure you've filled out all required fields including <code>$table_field</code>.", "status" => false, "hide" => false));
+            return;
+        }
 
         $field_type = $db->get_field( $table, $field_name );
+        $field_val = $dat[ $field_name ];
 
         // validate field value
         $check = validate_field_value( $field_type, $field_val );
@@ -356,26 +362,73 @@ function add_item_to_db( $ajax_data ) {
             echo $check;
             return;
         }
+
+        // field value checks out
+        $bindings[":$field_name"] = $field_val;
+
+    }
     
-        // generate SQL for data and history table
-        // TODO ...
-        if ( $prep && $prep_hist ) {
-            if ($dat[$pk]) {
-                echo json_encode(array("msg" => sprintf('Item <code>%s</code> successfully added to LIMS.', $dat[$pk]), "status" => true, "hide" => true, "log"=>$stmt ));
-                return;
-            } else {
-                echo json_encode(array("msg" => 'Item successfully added to LIMS.', "status" => true, "hide" => true, "log"=>$wpdb ));
-                return;
-            }
+    // generate SQL for data and history table
+    $db_conn = get_db_conn()->pdo;
+    $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql ) );
+
+
+    // Execute
+    if ( $stmt_table->execute() ) {
+
+        $_UID_fk = $db_conn->query( "SELECT $pk FROM $table ORDER BY $pk DESC LIMIT 1" )->fetch()[$pk]; // UID of last element added
+        add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $sent_fields, $bindings, $db_conn );
+
+        if ( DEBUG ) {
+            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $sql_history ));
         } else {
-            echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false, "log" => array($prep, $types, $dat, $full_name, $wpdb ) ));
-            return;
+            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
+        }
+
+    } else { // if error
+
+        if ( DEBUG ) {
+            echo json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => implode(' - ', $bindings), 'sql' => $sql ));
+        } else {
+            echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
         }
     }
 
-    echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
     return;
 }
+
+
+
+
+
+/**
+ * Add entry to history table after events
+ * such as an element being added, edited
+ * or deleted from a table.
+ *
+ * @param str $table - table name to add to
+ *        str $user - user name to assoc change with
+ *        int $fk - FK UID of element associated
+ *        with change
+ *        str $action - note about what was
+ *        being done e.g. "Item deleted manually"
+ *        array $fields - field names modified by user
+ *        assoc. array $bindings - [field name, field value]
+ *        PDO obj $db_conn
+ *
+ * @return void
+ *
+*/
+function add_item_to_history_table( $table, $user, $fk, $action, $fields, $bindings, $db_conn ) {
+
+    $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ('$fk', '$user', '$action', :%s)", $table, implode("`,`", $fields), implode(",:", $fields) );
+    $stmt_table_history = bind_pdo( $bindings, $db_conn->prepare( $sql_history ) );
+    $stmt_table_history->execute();
+
+}
+
+
+
 
 
 
@@ -544,8 +597,8 @@ function add_table_to_db( $ajax_data ) {
             if ( $field_type == 'datetime' ) {
                 $sql_str .= " DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
             } else {
-                $bindings[] = "DEFAULT '$field_default'";
-                $sql_str .= " :default"; // binding
+                $bindings[":default"] = $field_default;
+                $sql_str .= " DEFAULT :default"; // binding
             }
         }
 
@@ -579,17 +632,12 @@ function add_table_to_db( $ajax_data ) {
 
     // generate two statements since PDO won't do both as one and error check properly
     $db_conn = get_db_conn()->pdo;
-    $stmt_table = $db_conn->prepare( $sql_table );
-    $stmt_table_history = $db_conn->prepare( $sql_table_history );
-    if ( count( $bindings ) ) {
-        foreach ($bindings as $param) {
-            $prep->bindParam(':default', $param, PDO::PARAM_STR, 12);
-        }
-    }
+    $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
+    $stmt_table_history = bind_pdo( $bindings, $db_conn->prepare( $sql_table_history ) );
 
 
     // Execute
-    if ( $stmt_table->execute() && $stmt_table_history->execute() ) {
+    if ( $stmt_table->execute() !== false && $stmt_table_history->execute() !== false ) {
         refresh_db_setup(); // update DB class
 
         // XXX hard coded links
@@ -603,7 +651,7 @@ function add_table_to_db( $ajax_data ) {
 
         // drop table because it was properly generated but the history version wasn't
         if ( $stmt_table->errorInfo()[2] == NULL ) {
-            $db_conn->prepare("DROP TABLE `$table`")->execute();
+            $db_conn->exec("DROP TABLE `$table`");
         }
 
         if ( DEBUG ) {
@@ -618,6 +666,43 @@ function add_table_to_db( $ajax_data ) {
 
 
 }
+
+
+
+
+
+
+
+/**
+ * Bind the PDO sql statment and return it
+ *
+ * @param assoc. array $bindings [field, field_val]
+ *        PDO statement $stmt
+ *
+ * @return bound PDO statement
+ *
+*/
+function bind_pdo($bindings, $stmt) {
+
+    if ( !empty( $bindings ) ) {
+        foreach ($bindings as $field_name => $field_val) {
+            $pdo_type = PDO::PARAM_STR;
+            if ( is_numeric( $field_val) ) { // XXX not working
+                $field_val = intval( $field_val );
+                $pdo_type = PDO::PARAM_INT;
+            }
+            $stmt->bindParam($field_name, $field_val, $pdo_type);
+        }
+    }
+
+    return $stmt;
+
+}
+
+
+
+
+
 
 
 

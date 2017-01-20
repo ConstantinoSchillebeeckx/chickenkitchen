@@ -524,16 +524,56 @@ function addItem( event ) {
         doAJAX(data, function() {
             if (ajaxStatus) {
                 jQuery('#datatable').DataTable().draw('page'); // refresh table
-                showMsg(ajaxResponse);
-            } else {
-                showMsg({"msg":"There was an error adding the item, please try again.", "status": false, "hide": false});
-                if (DEBUG) console.log(ajaxResponse);
             }
+            showMsg(ajaxResponse);
+            if (DEBUG) console.log(ajaxResponse);
         });
     }
     
     jQuery('#addItemModal').modal('toggle'); // hide modal
 }
+
+
+
+
+
+
+
+
+
+
+/* Function called when user confirms to delete an item
+Function will make an AJAX call to the server to delete
+the selected item.
+Parameters:
+- id : name displayed in the first column of the row that
+       the user is requesting to delete.
+*/
+function deleteItem(id) {
+
+    jQuery('#deleteModal').modal('toggle'); // hide modal
+        
+    var data = {
+            "action": "deleteItem", 
+            "id": id, 
+            "table": table, // var set by build_table() in EL.php
+            "pk": pk, // var set by build_table() in EL.php
+    }
+
+    // send data to server
+    doAJAX(data, function() {
+        if (ajaxStatus) {
+
+            jQuery('#datatable').DataTable().draw('page'); // refresh table
+        }
+        showMsg(ajaxResponse);
+        if (DEBUG) console.log(ajaxResponse);
+    });
+
+}
+
+
+
 
 
 

@@ -20,6 +20,9 @@
         } else if ( $action == 'addItem' ) {
             add_item_to_db( $_GET );
             $error = false;
+        } else if ( $action == 'deleteItem' ) {
+            delete_item_from_db( $_GET );
+            $error = false;
         }
     
     }
