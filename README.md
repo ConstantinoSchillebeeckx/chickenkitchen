@@ -29,7 +29,7 @@ A simplified CRUD front-end with built in visualization features.
 - database must be `utf8`
 - Each *company* or *account* gets their own database name
 - Each table always has a history counterpart which is named the same as table but with an appended '_history'
-- Each table must at a minimum have a primary key, it'll be named `_UID int(11)`
+- Each table must at a minimum have a primary key, it'll be named `_UID int(11)` and must be the first column in the table
 - Each history table requires:
   1. same name as data table counterpart, but with appended '_history'
   2. same columns as data table counterpart

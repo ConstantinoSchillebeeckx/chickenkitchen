@@ -2,30 +2,34 @@
 
 /** 
  *
- * Initialize a new database connection using the Medoo framework.
+ * Initialize a new PDO database connection.
  *
  * @param void
  * 
- * @return medoo object
+ * @return PDO object
  *
 */
 
 function get_db_conn() {
     
     require_once "config/db.php"; // load DB variables
-    require_once "lib/Medoo/medoo.php"; // SQL library
+    //require_once "lib/Medoo/medoo.php"; // SQL library
 
     // Initialize connection
-    $db = new medoo([
-        'database_type' => 'mysql',
-        'database_name' => DB_NAME,
-        'server' => DB_HOST,
-        'username' => DB_USER,
-        'password' => DB_PASS,
-        'charset' => 'utf8',
-    ]);
+    try {
 
-    return $db;
+        $dsn = sprintf('mysql:dbname=%s;host=%s;charset=UTF8', DB_NAME, DB_HOST);
+        $conn = new PDO($dsn, DB_USER, DB_PASS);
+
+        // set the PDO error mode to silent
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT);
+
+        return $conn;
+
+    } catch(PDOException $e) {
+        echo "Connection failed: " . $e->getMessage();
+    }
+
 
 }
 
@@ -97,7 +101,10 @@ function refresh_db_setup() {
 
 
 /**
- * Generate HTML for viewing a table
+ * Function will generate all the HTML and JS needed for
+ * for viewing the queried data in table format.  It will
+ * also set the necesarry JS variables needed for use with
+ * databales JS library.
  *
  * @param $table str database table to view
  *
@@ -140,7 +147,7 @@ function build_table( $table ) {
             var pk = <?php echo json_encode( $pk ); ?>;
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
-            getDBdata(table, pk, columns, filter, hidden, null, hasHistory);
+            getDBdata(table, pk, columns, filter, hidden, null, hasHistory); // function will populate table and hidden any columns needed
         </script>
 
     <?php } else {
@@ -295,7 +302,8 @@ function get_fks_as_select($field_class) {
         $fks = $field_class->get_fks(); // get the available values
         $name = $field_class->get_name();
         $ref = $field_class->get_fk_ref(); // get the [table, field] the FK references
-        if ( $fks !== false && isset($ref_id) ) {
+
+        if ( $fks !== false && isset($ref) ) {
             echo '<select class="form-control" id="' . $name . '" name="' . $name . '">';
             foreach ($fks as $fk) {
                 echo sprintf("<option value='%s'>%s</option>", $fk, $fk);
@@ -345,57 +353,178 @@ function add_item_to_db( $ajax_data ) {
     // go through each field of the table and check 
     // that valid information was sent for it
     $bindings = [];
-    $sql = sprintf( "INSERT INTO `%s` (`%s`) VALUES (:%s)", $table, implode("`,`", $sent_fields), implode(",:", $sent_fields) );
     foreach ( $all_fields as $field_name ) {
 
-        if ( !empty( $required_fields ) && in_array( $field_name, $required_fields ) && !in_array( $field_name, $sent_fields ) ) {
-            echo json_encode(array("msg" => "Please ensure you've filled out all required fields including <code>$table_field</code>.", "status" => false, "hide" => false));
+        if ( in_array( $field_name, $sent_fields ) ) {
+
+            $field_type = $db->get_field( $table, $field_name );
+            $field_val = $dat[ $field_name ];
+
+            if ( !empty( $field_val ) && $field_val !== '' ) { // skip empty fields
+
+                // validate field value in proper format
+                $check = validate_field_value( $field_type, $field_val );
+                if ( $check !== true ) {
+                    echo $check;
+                    return;
+                }
+
+                // validate field is unique
+                $check = validate_field_unique_value( $table, $field_name, $field_val );
+                if ( $check !== true ) {
+                    echo $check;
+                    return;
+                }
+
+                // field value checks out
+                $bindings[$field_name] = $field_val;
+
+            }
+
+        } else if ( in_array( $field_name, $required_fields) ) {
+
+            echo json_encode(array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false));
             return;
+
         }
-
-        $field_type = $db->get_field( $table, $field_name );
-        $field_val = $dat[ $field_name ];
-
-        // validate field value
-        $check = validate_field_value( $field_type, $field_val );
-        if ( $check !== true ) {
-            echo $check;
-            return;
-        }
-
-        // field value checks out
-        $bindings[":$field_name"] = $field_val;
 
     }
     
-    // generate SQL for data and history table
-    $db_conn = get_db_conn()->pdo;
+    // generate SQL for data
+    $table_cols = implode('`,`', array_keys( $bindings ) );
+    $table_vals = implode(',:', array_keys( $bindings ) );
+    $sql = sprintf( "INSERT INTO `%s` (`%s`) VALUES (:%s)", $table, $table_cols, $table_vals);
+    $db_conn = get_db_conn();
     $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql ) );
 
-
     // Execute
-    if ( $stmt_table->execute() ) {
+    $status = $stmt_table->execute();
 
-        $_UID_fk = $db_conn->query( "SELECT $pk FROM $table ORDER BY $pk DESC LIMIT 1" )->fetch()[$pk]; // UID of last element added
-        add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $sent_fields, $bindings, $db_conn );
-
+    if ( $status === false ) { // error
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $sql_history ));
-        } else {
-            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
-        }
-
-    } else { // if error
-
-        if ( DEBUG ) {
-            echo json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => implode(' - ', $bindings), 'sql' => $sql ));
+            echo json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => $bindings, 'sql' => $sql));
         } else {
             echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
         }
+    } else {
+        // enter data for history table
+        $_UID_fk = $db_conn->query( "SELECT $pk FROM $table ORDER BY $pk DESC LIMIT 1" )->fetch()[$pk]; // UID of last element added
+        add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $bindings, $db_conn );
+
+        if ( DEBUG ) {
+            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $bindings ));
+        } else {
+            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
+        }
     }
+
+
 
     return;
 }
+
+
+
+/**
+ *
+*/
+function delete_item_from_db( $ajax_data ) {
+
+    // get some vars
+    $db = get_db_setup();
+    $_UID = $ajax_data['pk_id'];
+    $table = $ajax_data['table'];
+    $pk = $ajax_data['pk'];
+
+    // check that we have everything
+    if ( !isset( $table ) || empty( $table) || !isset( $pk ) || empty( $pk ) || !isset( $_UID ) || empty( $_UID ) ) {
+        echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
+        return;
+    }
+
+    // check if, when deleting a row, it's referenced by an FK
+    // if it is, then the item can't be deleted unless the 
+    // parent table ID doesn't have that value
+    $tmp = $db->get_data_ref( $table ); // [parent field => [child table, fk field]]
+    if ( !empty( $tmp ) && $tmp !== false ) {
+        foreach($tmp as $parent_field => $child) {
+            $child_table = $child[0];
+            $fk_field = $child[1];
+
+            // get parent value trying to be deleted
+            $id = get_db_conn()->query("SELECT $parent_field FROM $table WHERE `_UID` = '$_UID' limit 1")->fetch()[$parent_field];
+
+            // check if child table has a pk field equal to $id
+            if (table_has_value($child_table, $fk_field, $id)) {
+                $msg = "The item <code>$id</code> that you are trying to delete is referenced as a foreign key in the table <code><a href='?table=$child_table'>$child_table</a></code>; you must remove all the entries in that child table first, before deleting this parent entry.";
+                $ret = array("msg" => $msg, "status" => false, "hide" => false);
+                echo json_encode($ret);
+                return;
+            }
+        }
+    }
+
+    // delete item and update history
+    $sql = "DELETE FROM `$table` WHERE `_UID` = '$_UID'";
+    $db_conn = get_db_conn();
+    add_item_to_history_table( $table . "_history", USER, $_UID, "Manually deleted", [], $db_conn );
+    $stmt = $db_conn->exec( $sql );
+
+    if ( $stmt === false ) { // if error
+        if ( DEBUG ) {
+            echo json_encode(array("msg"=>"There was an error, please try again", "status"=>false, "log" => $sql, "hide" => false));
+        } else {
+            echo json_encode(array("msg"=>"There was an error, please try again", "status"=>false, "hide" => false));
+        }
+        return;
+    } else {
+        // update history with an empty row
+    }
+
+
+    echo json_encode(array("msg"=>"Item was properly deleted.", "status"=>true, "hide" => true));
+    return;
+
+}
+
+
+
+
+
+
+
+
+
+/* Check if table has value
+
+Function useful for checking if a table has a certain value;
+used when trying to remove a field that is referenced by
+a FK.
+
+Parameters:
+===========
+- $table_name : str
+               table in which to check for results
+- $field_name : str
+               field to query
+- $id : str
+        value in $field_name to query
+*/
+function table_has_value($table_name, $field_name, $id) {
+
+    $result = get_db_conn()->query("SELECT $field_name FROM $table_name WHERE $field_name = '$id'");
+
+    return $result;
+
+    if ( !empty( $result ) ) {
+        return $result;
+    } else {
+        return false;
+    }
+}
+
+
+
 
 
 
@@ -406,25 +535,38 @@ function add_item_to_db( $ajax_data ) {
  * such as an element being added, edited
  * or deleted from a table.
  *
- * @param str $table - table name to add to
- *        str $user - user name to assoc change with
- *        int $fk - FK UID of element associated
- *        with change
- *        str $action - note about what was
- *        being done e.g. "Item deleted manually"
- *        array $fields - field names modified by user
- *        assoc. array $bindings - [field name, field value]
- *        PDO obj $db_conn
+ * @param 
+ * (str) $table - table name to add to
+ * (str) $user - user name to assoc change with
+ * (int) $fk - FK UID of element associated
+ * with change
+ * (str) $action - note about what was
+ *  being done e.g. "Item deleted manually"
+ * (assoc. array) $field_data - data being entered into history
+ *  table in format [column name => col value]. this will be used
+ *  to automatically generate a prepared statement. If array is
+ *  empty, default history table columns (User, Action) will be
+ *  set - this is used when item is deleted.
  *
- * @return void
+ * (PDO obj) $db_conn - connection to DB
+ *
+ * @return False on failure
  *
 */
-function add_item_to_history_table( $table, $user, $fk, $action, $fields, $bindings, $db_conn ) {
+function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $db_conn ) {
 
-    $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ('$fk', '$user', '$action', :%s)", $table, implode("`,`", $fields), implode(",:", $fields) );
-    $stmt_table_history = bind_pdo( $bindings, $db_conn->prepare( $sql_history ) );
-    $stmt_table_history->execute();
+    $table_columns = array_keys( $field_data );
 
+    if ( !empty( $field_data ) ) {
+        $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ('$fk', '$user', '$action', :%s)", $table, implode("`,`", $table_columns), implode(",:", $table_columns) );
+        $stmt_table_history = bind_pdo( $field_data, $db_conn->prepare( $sql_history ) );
+        $status = $stmt_table_history->execute();
+    } else { // if no field data is sent, just update the action and user
+        $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`) VALUES ('$fk', '$user', '$action')", $table );
+        $status = $db_conn->exec( $sql_history );
+    }
+
+    return $status;
 }
 
 
@@ -597,7 +739,7 @@ function add_table_to_db( $ajax_data ) {
             if ( $field_type == 'datetime' ) {
                 $sql_str .= " DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
             } else {
-                $bindings[":default"] = $field_default;
+                $bindings["default"] = $field_default;
                 $sql_str .= " DEFAULT :default"; // binding
             }
         }
@@ -625,13 +767,17 @@ function add_table_to_db( $ajax_data ) {
     $user = "`User` varchar(128)";
     $timestamp = "`Timestamp` timestamp DEFAULT CURRENT_TIMESTAMP";
     $action = "`Action` varchar(128)";
-    $fk = "CONSTRAINT `_UID_fk_FK_" . substr(md5(rand()), 0, 4) . "` FOREIGN KEY (`_UID_fk`) REFERENCES `$table` (`_UID`) ON DELETE RESTRICT ON UPDATE CASCADE";
 
     $sql_table = sprintf("CREATE TABLE `%s` (%s, %s);", $table, $_UID, implode( ', ', $sql_fields ) );
-    $sql_table_history = sprintf("CREATE TABLE `%s_history` (%s, %s, %s, %s, %s, %s, %s)", $table, $_UID, $_UID_fk, $user, $timestamp, $action, implode( ', ', $sql_fields ), $fk );
+
+    // we are only interested in field names and types for history table    
+    $sql_fields = str_replace(" NOT NULL", "", $sql_fields);
+    $sql_fields = str_replace(" UNIQUE", "", $sql_fields);
+    $sql_fields = str_replace(" DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP", "", $sql_fields);
+    $sql_table_history = sprintf("CREATE TABLE `%s_history` (%s, %s, %s, %s, %s, %s)", $table, $_UID, $_UID_fk, $user, $timestamp, $action, implode( ', ', $sql_fields ) );
 
     // generate two statements since PDO won't do both as one and error check properly
-    $db_conn = get_db_conn()->pdo;
+    $db_conn = get_db_conn();
     $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
     $stmt_table_history = bind_pdo( $bindings, $db_conn->prepare( $sql_table_history ) );
 
@@ -676,8 +822,10 @@ function add_table_to_db( $ajax_data ) {
 /**
  * Bind the PDO sql statment and return it
  *
- * @param assoc. array $bindings [field, field_val]
- *        PDO statement $stmt
+ * @param 
+ * (assoc. array) $bindings - table data being
+ *  bound in parepare statment with form
+ *  [ table_column => column value ]
  *
  * @return bound PDO statement
  *
@@ -686,12 +834,15 @@ function bind_pdo($bindings, $stmt) {
 
     if ( !empty( $bindings ) ) {
         foreach ($bindings as $field_name => $field_val) {
+
             $pdo_type = PDO::PARAM_STR;
-            if ( is_numeric( $field_val) ) { // XXX not working
+
+            if ( is_numeric( $field_val) ) {
                 $field_val = intval( $field_val );
                 $pdo_type = PDO::PARAM_INT;
             }
-            $stmt->bindParam($field_name, $field_val, $pdo_type);
+         
+            $stmt->bindValue(":$field_name", $field_val, $pdo_type);
         }
     }
 
@@ -700,6 +851,42 @@ function bind_pdo($bindings, $stmt) {
 }
 
 
+
+
+/**
+ * Check whether value breaks unique constraint of field in
+ * table.
+ *
+ * @param
+ * (str) $table - name of table value needs to be put in
+ * (str) $field - field name in table to check whether value is
+ *  unique against
+ * (str/int) $value - value to check for uniqueness
+ *
+ * @return err message if value not unique, true otherwse
+ *
+*/
+function validate_field_unique_value( $table, $field, $value ) {
+
+    $db = get_db_setup();
+    $db_conn = get_db_conn();
+    
+    $unique_fields = $db->get_unique( $table );
+
+    // check if field has unique requirement first
+    if ( is_array($unique_fields) && in_array( $field, $unique_fields ) ) {
+        
+        // get unique values for field currently in DB
+        $unique_results = $db_conn->query("SELECT DISTINCT `$field` FROM `$table`")->fetchAll(PDO::FETCH_COLUMN); // these results will always all be strings, so we check against string version of $value
+        if ( in_array( (string)$value, $unique_results ) ) {
+            return json_encode(array("msg" => "The item value <code>$value</code> you are trying to add already exists in the unique field <code>$field</code>, please choose another.", "status" => false, "hide" => false));
+        }
+    
+    }
+
+    return true;
+
+}
 
 
 
@@ -823,8 +1010,8 @@ function delete_table_from_db( $table_name ) {
         $msg = "This table is referenced by:<ul>";
 
         foreach($refs as $ref) {
-            $ref_table = explode('.',$ref)[0];
-            $ref_field = explode('.',$ref)[1];
+            $ref_table = $ref[0];
+            $ref_field = $ref[1];
             if ( in_array( $ref_table, $data_tables ) ) { // only alert about references to data tables (instead of history tables)
                 $msg .= "<li>field <code>$ref_field</code> in table <code>$ref_table</code></li>";
             }

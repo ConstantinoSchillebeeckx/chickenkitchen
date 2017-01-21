@@ -223,7 +223,8 @@ AJAX call for retreiving DB data
 
 When script is called on a page with a table that
 has the ID 'datatable', AJAX will be used to query
-the DB.
+the DB and fill the HTML table with data. This function
+will also hide any hidden columns.
 
 The function build_table() [functions.php] is used to
 build the HTML table needed to display the data
@@ -347,7 +348,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
 Because none of the buttons have a specified ID, we
 need to use some jQuery to figure out which button
 was clicked and thus which row the user is trying
-to act on.  This function will figure out the ID
+to act on.  This function will figure out the PK ID
 of the first column item and update the modal with
 its value.  It will then display the modal as well as
 set the proper onclick event for the confirm delete button
@@ -363,11 +364,11 @@ function deleteModal(sel) {
 
     // lookup data for the row that was selected by button click
     var rowNum = jQuery(sel).closest('tr').index();
-    var dat = jQuery('#datatable').DataTable().row(rowNum).data();
+    var rowDat = jQuery('#datatable').DataTable().row(rowNum).data();
 
-    jQuery("#deleteID").html( "<code>" + dat[1] + "</code>" ); // set PK message
+    jQuery("#deleteID").html( "<code>" + rowDat[1] + "</code>" ); // set PK message
     jQuery('#deleteModal').modal('toggle'); // show modal
-    jQuery("#confirmDelete").attr("onclick", "deleteItem('" + dat[0] + "')");
+    jQuery("#confirmDelete").attr("onclick", "deleteItem('" + rowDat[0] + "')");
 }
 
 
@@ -490,7 +491,7 @@ function addItemModal() {
     jQuery('#addItemModal').modal('toggle'); // show modal
 
     // check if we should disable the submit button
-    //if ( jQuery('*:contains("This field is a foreign key")' ).length !== 0) jQuery('#confirmAddItem').prop('disabled', true);
+    if ( jQuery('*:contains("This field is a foreign key")' ).length !== 0) jQuery('#confirmAddItem').prop('disabled', true);
 }
 
 
@@ -546,18 +547,17 @@ function addItem( event ) {
 Function will make an AJAX call to the server to delete
 the selected item.
 Parameters:
-- id : name displayed in the first column of the row that
-       the user is requesting to delete.
+- pk_id : cell value of the PK user wants to delete
 */
-function deleteItem(id) {
+function deleteItem(pk_id) {
 
     jQuery('#deleteModal').modal('toggle'); // hide modal
         
     var data = {
             "action": "deleteItem", 
-            "id": id, 
-            "table": table, // var set by build_table() in EL.php
-            "pk": pk, // var set by build_table() in EL.php
+            "pk_id": pk_id, 
+            "table": table, // var set by build_table() in functions.php
+            "pk": pk, // var set by build_table() in functions.php
     }
 
     // send data to server
@@ -687,7 +687,7 @@ function addField() {
             '<label class="col-sm-1 control-label">Unique</label>',
             '<div class="col-sm-3">',
             '<label class="checkbox-inline">',
-            '<input type="checkbox" name="unique-' + fieldNum + '"> check if field is unique',
+            '<input type="checkbox" name="unique-' + fieldNum + '"> check if field is unique. <b>Note:</b> if you plan on making this field a reference for a foreign key, then this field must be unique.',
             '</label>',
             '</div>',
             '</div>',
@@ -787,7 +787,7 @@ function selectChange(id){
 
     var hidden = jQuery("#hiddenType-" + id);
     if (val == 'fk') {
-        var html = '<p>Text for foreign key</p>';
+        var html = '<p>Please choose a table and field that you\'d like to use as a reference for your foreign key; note that only fields that are set to be unique will be found in this list.</p>';
         html += getFKchoices(id);
     } else if (val == 'date') {
         html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
@@ -812,7 +812,11 @@ function selectChange(id){
 When setting up a table, a field can be chosen to be
 a foreign key; this will generate a drop down select
 filled with table name and field name from which to
-choose as a reference for the FK
+choose as a reference for the FK. 
+
+Note that it will only list unique, non-hidden
+fields in non-history tables.
+
 Parameters:
 -----------
 - id : int (optional)
@@ -833,21 +837,23 @@ function getFKchoices(id=null) {
     }
 
     var html = '<select class="form-control" name="' + name + '" required>';
+    var count = 0;
     for (var i in db['tables']) {
         var table = db['tables'][i];
         var tableStruct = struct[table];
         var fieldStruct = tableStruct['struct'];
         var isHist = tableStruct['is_history'];
-       
+      
         // only generate FK for regular tables (not history tables)
         if (isHist == false) { 
             for (var j in tableStruct['fields']) {
                 var field = tableStruct['fields'][j];
-                if ( fieldStruct[field]['hidden'] == false) {
+                if ( fieldStruct[field]['hidden'] == false && (fieldStruct[field]['key'] == 'PRI' || fieldStruct[field]['key'] == 'UNI')) {
                     var val = table + '.' + field;
                     var label = 'Table: ' + table + ' | Field: ' + field;
                 
                     html += '<option value="' + val + '">' + label + '</option>';
+                    count++;
                 }
             }
         }
@@ -855,6 +861,12 @@ function getFKchoices(id=null) {
     }
     html += '</select>';
 
+
+    // a bit hacky, but if the select is empty, remove it and display a message
+    // this can be improved by updating db.class.php so that all the parent field
+    // are already defined
+    if ( count == 0 ) html = '<code>Looks like none of the existing tables have any fields that are set to be unique - this is a requirement for a field to act as a parent for a field in a child table.</code>';
+        
     return html;
 
 }

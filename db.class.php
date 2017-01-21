@@ -244,7 +244,7 @@ class Database {
     // like get_ref() but only returns non-history tables
     // check if table contains a field that is
     // referenced by an FK
-    // if so, return the field name(s) [table.col] as an array
+    // if so, return the field name(s) in format [parent field => [ child table, fk col], ]
     public function get_data_ref($table) {
         $history_tables = $this->get_history_tables();
         $table_class = $this->get_table( $table );
@@ -255,10 +255,10 @@ class Database {
             $field_class = $table_class->get_field($field);
             if ($field_class->is_ref()) {
 
-                $ref = explode('.', $field_class->get_ref());
-                $ref_table = $ref[0];
-                $ref_field = $ref[1];
-                if ( !in_array( $ref_table, $history_tables ) ) $fks[] = $ref;
+                $tmp = explode('.', $field_class->get_ref());
+                $child_table = $tmp[0];
+                $fk_field = $tmp[1];
+                if ( !in_array( $child_table, $history_tables ) ) $fks[$field] = [$child_table, $fk_field];
             }
         }
 
@@ -302,9 +302,8 @@ class Table {
 
         // get list of fields
         $sql = sprintf("SHOW FULL COLUMNS FROM `%s`", $this->name);
-        $results = $db->query($sql)->fetchAll();
         $info = array();
-        foreach($results as $row) {
+        foreach($db->query($sql) as $row) {
             $this->fields[] = $row["Field"];
             $info[$row['Field']] = array("Type" => $row['Type'], 
                                            "Null" => $row['Null'],

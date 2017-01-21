@@ -25,14 +25,16 @@ if ( isset($_GET['table'] ) ) {
     // parameter represents the DataTables column identifier. In this case simple
     // indexes
     $columns = array();
-    foreach ($_GET['cols'] as $i => $col) {
-        $columns[] = array('db' => $col, 'dt' => $i);
+    if ( isset($_GET['cols']) && is_array($_GET['cols']) && !empty($_GET['cols']) ) {
+        foreach ($_GET['cols'] as $i => $col) {
+            $columns[] = array('db' => $col, 'dt' => $i);
+        }
+         
+        $results = SSP::simple( $_GET, get_db_conn(), $table, $primaryKey, $columns );
+
+        echo json_encode( $results );
     }
-     
-    $results = SSP::simple( $_GET, get_db_conn(), $table, $primaryKey, $columns );
-
-    echo json_encode( $results );
-
+    
 }
 
 class SSP {
@@ -388,7 +390,7 @@ class SSP {
             $sql = $bindings;
         }
 
-        $stmt = $db->pdo->prepare( $sql );
+        $stmt = $db->prepare( $sql );
 
         // Bind parameters
         if ( is_array( $bindings ) ) {
