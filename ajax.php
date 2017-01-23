@@ -23,6 +23,9 @@
         } else if ( $action == 'deleteItem' ) {
             delete_item_from_db( $_GET );
             $error = false;
+        } else if ( $action == 'editItem' ) {
+            echo edit_item_in_db( $_GET );
+            $error = false;
         }
     
     }

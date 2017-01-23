@@ -183,6 +183,22 @@ class Database {
         }
     }
 
+    // given a table name and a field, return true if field is required
+    public function is_field_required( $table, $field ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            $table_class = $this->get_struct()[$table];
+            $field_class = $table_class->get_field($field);
+            if ( $field_class !== false && $field_class->is_required() ) {
+                return true;
+            } else {
+                return false;
+            }
+            
+        } else {
+            return false;
+        }
+    }
+
     // given a table (name) return its full name (with prepended DB)
     public function get_table_full_name($table) {
         if ( in_array( $table, $this->get_all_tables() ) ) {

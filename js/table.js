@@ -389,23 +389,90 @@ function editModal(sel) {
 
     // lookup data for the row that was selected by button click
     var rowNum = jQuery(sel).closest('tr').index();
-    var cellVal = jQuery('#datatable').DataTable().row(rowNum).data()[1];
+    var rowDat = parseTableRow(rowNum);
+    var cols = Object.keys(rowDat);
 
 
     // get values from row and fill modal
-    var dat = parseTableRow(rowNum);
-    originalRowVals = dat; // set to global for comparison to edited values
-    for (var col in dat) {
-        var cell = dat[col];
-        jQuery('#' + col).val(cell);
+    originalRowVals = jQuery.extend({}, rowDat); // create a copy, set to global for comparison to edited values
+    delete originalRowVals['_UID'];
+    for (var col in rowDat) {
+        var cell = rowDat[col];
+        jQuery('input[id="' + col +'"]').val(cell);
     }
 
 
-    jQuery("#editID").html( "<code>" + cellVal + "</code>" ); // set PK message
+    jQuery("#editID").html( "<code>" + rowDat[cols[1]] + "</code>" ); // set PK message
     jQuery('#editModal').modal('toggle'); // show modal
 
-    jQuery("#confirmEdit").attr("onclick", "editItem('" + cellVal + "')");
+    jQuery("#confirmEdit").attr("onclick", "editItem(event, '" + rowDat['_UID'] + "')");
 }
+
+
+
+
+
+
+/* Function called when use confirms to edit an item
+Function will make an AJAX call to the server to delete
+the selected item.
+Parameters:
+- pk_id : cell value of the PK user wants to delete
+*/
+function editItem(event, pk_id) {
+
+    event.preventDefault(); // cancel form submission
+    jQuery('#submit_handle').click(); // needed to validate form
+
+    if (jQuery('form')[0].checkValidity()) { // if valid, load
+        var data = {
+                "action": "editItem", 
+                "table": table, // var set by build_table() in EL.php
+                "pk": pk, // var set by build_table() in EL.php
+                "original_row": originalRowVals, // var set in editModal()
+                "dat": getFormData('#editItemForm'), // form values
+                "pk_id": pk_id,
+        }
+        
+        if (DEBUG) console.log(data);
+
+
+        // send data to server
+        doAJAX(data, function() {
+            jQuery('#editModal').modal('toggle'); // hide modal
+            if (ajaxStatus) {
+
+                jQuery('#datatable').DataTable().draw('page'); // refresh table
+            }
+            showMsg(ajaxResponse);
+            if (DEBUG) console.log(ajaxResponse);
+        });
+
+        // send data to server
+/*
+        doAJAX(data, function() {
+            if (ajaxStatus) {
+                if (ajaxResponse.status === true) {
+                    jQuery('#datatable').DataTable().draw('page'); // refresh table
+                    jQuery('#editModal').modal('toggle'); // hide modal
+                    showMsg(ajaxResponse);
+                } else { // if an error was caught, show message in modal
+                    showMsg(ajaxResponse, ".modal-body");
+                }
+                console.log(ajaxResponse);
+            } else {
+                showMsg({"msg":"There was an error editing the item, please try again.", "status": false, 'hide': false});
+                console.log(ajaxReponse);
+
+                jQuery('#editModal').modal('toggle'); // hide modal
+            }
+        });
+*/
+    }
+}
+
+
+
 
 
 

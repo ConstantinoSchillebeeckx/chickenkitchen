@@ -318,6 +318,72 @@ function get_fks_as_select($field_class) {
 }
 
 
+/**
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+*/
+function edit_item_in_db( $ajax_data ) {
+
+    // get some vars
+    $pk_id = $ajax_data['pk_id'];
+    $table = $ajax_data['table'];
+    $pk = $ajax_data['pk'];
+    $original_dat = $ajax_data['original_row'];
+    $sent_dat = $ajax_data['dat'];
+    $update_dat = array_diff_assoc( $sent_dat, $original_dat );  // assoc arr of data different than original
+
+    // check if data is different than original
+    if ( $sent_dat === $original_dat ) {
+        return json_encode(array("msg" => 'The edit is not any different than the current data stored for this item, please ensure you\'ve edited at least one field.', "status" => false, "hide" => false));
+    }
+
+
+    // check if new data is valid to fit
+    $validate = validate_row( $update_dat, $table, True );
+    if ($validate !== true ) return $validate;
+
+
+    // update row
+    $bindings = [];
+    $db_conn = get_db_conn();
+    foreach ( $update_dat as $field_name => $field_val ) {
+        $bindings[] = "`$field_name`=:" . $field_name;
+    }
+    $sql = sprintf("UPDATE `$table` SET %s WHERE `$pk`='$pk_id'", implode(',', $bindings));
+    $stmt_table = bind_pdo( $update_dat, $db_conn->prepare( $sql ) );
+    $status = $stmt_table->execute();
+
+
+    if ( $status === false ) { // error
+        if ( DEBUG ) {
+            return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => $dat, 'sql' => $sql));
+        } else {
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+        }
+    } else {
+        // enter data for history table
+        add_item_to_history_table( $table . "_history", USER, $pk_id, "Manually edited", $update_dat, $db_conn );
+
+        if ( DEBUG ) {
+            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $update_dat ));
+        } else {
+            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
+        }
+    }
+
+
+}
+
+
+
 
 
 /**
@@ -345,74 +411,37 @@ function add_item_to_db( $ajax_data ) {
         return;
     }
 
-    $sent_fields = array_keys( $dat );
-    $all_fields = $db->get_visible_fields( $table );
-    $required_fields = $db->get_required_fields( $table );
-
-
-    // go through each field of the table and check 
-    // that valid information was sent for it
-    $bindings = [];
-    foreach ( $all_fields as $field_name ) {
-
-        if ( in_array( $field_name, $sent_fields ) ) {
-
-            $field_type = $db->get_field( $table, $field_name );
-            $field_val = $dat[ $field_name ];
-
-            if ( !empty( $field_val ) && $field_val !== '' ) { // skip empty fields
-
-                // validate field value in proper format
-                $check = validate_field_value( $field_type, $field_val );
-                if ( $check !== true ) {
-                    echo $check;
-                    return;
-                }
-
-                // validate field is unique
-                $check = validate_field_unique_value( $table, $field_name, $field_val );
-                if ( $check !== true ) {
-                    echo $check;
-                    return;
-                }
-
-                // field value checks out
-                $bindings[$field_name] = $field_val;
-
-            }
-
-        } else if ( in_array( $field_name, $required_fields) ) {
-
-            echo json_encode(array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false));
-            return;
-
-        }
-
+    // validate row
+    $validate = validate_row( $dat, $table );
+    if ($validate !== true ) {
+        echo $validate;
+        return;
     }
+
     
     // generate SQL for data
-    $table_cols = implode('`,`', array_keys( $bindings ) );
-    $table_vals = implode(',:', array_keys( $bindings ) );
+    $table_cols = implode('`,`', array_keys( $dat ) );
+    $table_vals = implode(',:', array_keys( $dat ) );
     $sql = sprintf( "INSERT INTO `%s` (`%s`) VALUES (:%s)", $table, $table_cols, $table_vals);
     $db_conn = get_db_conn();
-    $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql ) );
+    $stmt_table = bind_pdo( $dat, $db_conn->prepare( $sql ) );
 
     // Execute
     $status = $stmt_table->execute();
 
     if ( $status === false ) { // error
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => $bindings, 'sql' => $sql));
+            echo json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => $dat, 'sql' => $sql));
         } else {
             echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
         }
     } else {
         // enter data for history table
         $_UID_fk = $db_conn->query( "SELECT $pk FROM $table ORDER BY $pk DESC LIMIT 1" )->fetch()[$pk]; // UID of last element added
-        add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $bindings, $db_conn );
+        add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $dat, $db_conn );
 
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $bindings ));
+            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $dat ));
         } else {
             echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
         }
@@ -426,6 +455,16 @@ function add_item_to_db( $ajax_data ) {
 
 
 /**
+ * Function will delete a row from a given datatable
+ * and will update its history counter part with a 
+ * "Manually delete" event (with empty row content)
+ *
+ * @params (assoc arr) $ajax_data with keys:
+ * (str) pk_id - id of primary key being deleted
+ * (str) table - name of table deleting from
+ * (str) pk - name of primary key column
+ *
+ * @return void
  *
 */
 function delete_item_from_db( $ajax_data ) {
@@ -558,7 +597,7 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
     $table_columns = array_keys( $field_data );
 
     if ( !empty( $field_data ) ) {
-        $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ('$fk', '$user', '$action', :%s)", $table, implode("`,`", $table_columns), implode(",:", $table_columns) );
+        $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ('$fk', '$user', '$action', :%s)", $table, implode("`,`", $table_columns), implode(",:", $table_columns ) );
         $stmt_table_history = bind_pdo( $field_data, $db_conn->prepare( $sql_history ) );
         $status = $stmt_table_history->execute();
     } else { // if no field data is sent, just update the action and user
@@ -650,7 +689,8 @@ function add_table_to_db( $ajax_data ) {
     // check field names for errors
     for( $i = 1; $i<=$field_num; $i++ ) {
 
-        $field_name = $data['name-' . $i];
+        $field_name = str_replace(' ', '_', $data['name-' . $i]); // replace spaces with _ to make parepared statements easier
+        $comment['name'] = $data['name-' . $i];
         $field_type = $data['type-' . $i];
         $field_current = isset($data['currentDate-' . $i]) ? $data['currentDate-' . $i] : false;
         $field_required = isset($data['required-' . $i]) ? $data['required-' . $i] : false;
@@ -688,11 +728,12 @@ function add_table_to_db( $ajax_data ) {
         // type cannot have default current_date (per SQL),
         // so we change the type to timestamp
         // and leave a note in the comment field
-        $comment = false;
+        //$comment = false;
         $is_fk = false;
         if ( $field_type == 'date' ) {
             $field_type = 'datetime';
-            $comment =' COMMENT \'{"column_format": "date"}\'';
+            $comment['column_format'] = 'date';
+            //$comment =' COMMENT \'{"column_format": "date"}\'';
         } elseif ($field_type == 'fk') { // if FK, set type the same as reference
             $field_default = false; // foreign key cannot have a default value
             $is_fk = true;
@@ -747,8 +788,8 @@ function add_table_to_db( $ajax_data ) {
         // set unique
         if ( $field_unique ) $sql_str .= " UNIQUE";
   
-        // add comment if it exists
-        if ($comment) $sql_str .= $comment;
+        // add comment
+        $sql_str .= " COMMENT '" . json_encode($comment) . "'";
 
         // add index if not long string and not unique
         if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
@@ -771,10 +812,7 @@ function add_table_to_db( $ajax_data ) {
     $sql_table = sprintf("CREATE TABLE `%s` (%s, %s);", $table, $_UID, implode( ', ', $sql_fields ) );
 
     // we are only interested in field names and types for history table    
-    $sql_fields = str_replace(" NOT NULL", "", $sql_fields);
-    $sql_fields = str_replace(" UNIQUE", "", $sql_fields);
-    $sql_fields = str_replace(" DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP", "", $sql_fields);
-    $sql_table_history = sprintf("CREATE TABLE `%s_history` (%s, %s, %s, %s, %s, %s)", $table, $_UID, $_UID_fk, $user, $timestamp, $action, implode( ', ', $sql_fields ) );
+    $sql_table_history = sprintf("CREATE TABLE `%s_history` (%s, %s, %s, %s, %s, %s)", $table, $_UID, $_UID_fk, $user, $timestamp, $action, implode( ', ', $history_fields ) );
 
     // generate two statements since PDO won't do both as one and error check properly
     $db_conn = get_db_conn();
@@ -837,7 +875,7 @@ function bind_pdo($bindings, $stmt) {
 
             $pdo_type = PDO::PARAM_STR;
 
-            if ( is_numeric( $field_val) ) {
+            if ( is_numeric( $field_val) && is_int( $field_val ) ) { // float case is handled as str
                 $field_val = intval( $field_val );
                 $pdo_type = PDO::PARAM_INT;
             }
@@ -851,6 +889,72 @@ function bind_pdo($bindings, $stmt) {
 }
 
 
+
+/**
+ * Validate row values by checking that:
+ * - each field value is valide for the field type
+ *   (e.g. str for str field, int for int field)
+ * - value is unique if field is unique type
+ * - value not null if field is required
+ *
+ * @param
+ * (assoc. arr.) $dat row data being validated with
+ *  table fields as keys and cell value as value
+ * (str) $table - table name for row
+ * (bool) $edit - in the case of a row being edited
+ * $dat will only be the changes to the row which
+ * may not include a field that is required, in this
+ * case the 'field required' check isn't performed.
+ *
+ * @return json encoded error message, otherwise true
+ *
+*/
+function validate_row( $dat, $table, $edit=False ) {
+
+    $db = get_db_setup();
+    $all_fields = $db->get_visible_fields( $table );
+    $sent_fields = array_keys( $dat );
+
+    // go through each field of the table and check 
+    // that valid information was sent for it
+    foreach ( $all_fields as $field_name ) {
+
+        $field_required = $db->is_field_required( $table, $field_name );
+        if ( in_array( $field_name, $sent_fields ) ) {
+
+            $field_type = $db->get_field( $table, $field_name );
+            $field_val = $dat[ $field_name ];
+
+            if ( !empty( $field_val ) && $field_val !== '' ) { // skip empty fields
+
+                // validate field value in proper format
+                $check = validate_field_value( $field_type, $field_val );
+                if ( $check !== true ) {
+                    return $check;
+                }
+
+                // validate field is unique
+                $check = validate_field_unique_value( $table, $field_name, $field_val );
+                if ( $check !== true ) {
+                    return $check;
+                }
+
+            } else if ( $field_required ) {
+
+                return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+
+            }
+
+        } else if ( $field_required && $edit ) {
+
+            return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+
+        }
+
+    }
+
+    return true;
+}
 
 
 /**
