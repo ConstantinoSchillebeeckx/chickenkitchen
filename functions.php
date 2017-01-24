@@ -319,16 +319,23 @@ function get_fks_as_select($field_class) {
 
 
 /**
+ * Function handles the case when a user edits the data
+ * of an item. If no change was made to the data, the 
+ * user is told they have to change something. Otherwise
+ * the data is validated to ensure it meets the requirements
+ * set by each field.  It is then updated and an account of
+ * the change is added to the history table with the new data
+ * and the action "Manually Edited".
  * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
+ * @params (assoc arr) $ajax_data with keys
+ * pk_id - value of PK field being edited
+ * table - name of table being edited
+ * pk - name of PK field (_UID)
+ * original_row - assoc arr of original unedited data [field => value]
+ * dat - assoc arr of edited data [field => value]
+ *
+ * @return - error message for use with showMsg()
+ *
 */
 function edit_item_in_db( $ajax_data ) {
 
@@ -370,7 +377,7 @@ function edit_item_in_db( $ajax_data ) {
         }
     } else {
         // enter data for history table
-        add_item_to_history_table( $table . "_history", USER, $pk_id, "Manually edited", $update_dat, $db_conn );
+        add_item_to_history_table( $table . "_history", USER, $pk_id, "Manually edited", $sent_dat, $db_conn );
 
         if ( DEBUG ) {
             return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $update_dat ));
@@ -395,7 +402,7 @@ function edit_item_in_db( $ajax_data ) {
  * @param assoc arr $aja_data with keys: table, pk, dat
  *        dat -> obj of form data (key: col name, val: value)
  *
- * @return void
+ * @return - error message for use with showMsg()
 */
 function add_item_to_db( $ajax_data ) {
 
@@ -407,15 +414,13 @@ function add_item_to_db( $ajax_data ) {
 
     // check that we have everything
     if ( !isset( $table ) || empty( $table) || !isset( $pk ) || empty( $pk ) ) {
-        echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
-        return;
+        return json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
     }
 
     // validate row
     $validate = validate_row( $dat, $table );
     if ($validate !== true ) {
-        echo $validate;
-        return;
+        return $validate;
     }
 
     
@@ -431,9 +436,9 @@ function add_item_to_db( $ajax_data ) {
 
     if ( $status === false ) { // error
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => $dat, 'sql' => $sql));
+            return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => $dat, 'sql' => $sql));
         } else {
-            echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
         }
     } else {
         // enter data for history table
@@ -441,15 +446,12 @@ function add_item_to_db( $ajax_data ) {
         add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $dat, $db_conn );
 
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $dat ));
+            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $dat ));
         } else {
-            echo json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
+            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
         }
     }
 
-
-
-    return;
 }
 
 
@@ -464,7 +466,7 @@ function add_item_to_db( $ajax_data ) {
  * (str) table - name of table deleting from
  * (str) pk - name of primary key column
  *
- * @return void
+ * @return - error message for use with showMsg()
  *
 */
 function delete_item_from_db( $ajax_data ) {
@@ -477,8 +479,7 @@ function delete_item_from_db( $ajax_data ) {
 
     // check that we have everything
     if ( !isset( $table ) || empty( $table) || !isset( $pk ) || empty( $pk ) || !isset( $_UID ) || empty( $_UID ) ) {
-        echo json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
-        return;
+        return json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
     }
 
     // check if, when deleting a row, it's referenced by an FK
@@ -497,8 +498,7 @@ function delete_item_from_db( $ajax_data ) {
             if (table_has_value($child_table, $fk_field, $id)) {
                 $msg = "The item <code>$id</code> that you are trying to delete is referenced as a foreign key in the table <code><a href='?table=$child_table'>$child_table</a></code>; you must remove all the entries in that child table first, before deleting this parent entry.";
                 $ret = array("msg" => $msg, "status" => false, "hide" => false);
-                echo json_encode($ret);
-                return;
+                return json_encode($ret);
             }
         }
     }
@@ -511,18 +511,14 @@ function delete_item_from_db( $ajax_data ) {
 
     if ( $stmt === false ) { // if error
         if ( DEBUG ) {
-            echo json_encode(array("msg"=>"There was an error, please try again", "status"=>false, "log" => $sql, "hide" => false));
+            return json_encode(array("msg"=>"There was an error, please try again", "status"=>false, "log" => $sql, "hide" => false));
         } else {
-            echo json_encode(array("msg"=>"There was an error, please try again", "status"=>false, "hide" => false));
+            return json_encode(array("msg"=>"There was an error, please try again", "status"=>false, "hide" => false));
         }
         return;
     } else {
-        // update history with an empty row
+        return json_encode(array("msg"=>"Item was properly deleted.", "status"=>true, "hide" => true));
     }
-
-
-    echo json_encode(array("msg"=>"Item was properly deleted.", "status"=>true, "hide" => true));
-    return;
 
 }
 
@@ -658,6 +654,8 @@ Parameters:
                  - name-1 (field name)
                  - type-1 (field type)
 - $ajax_data['field_num'] : number of fields being added
+
+ * @return - error message for use with showMsg()
 */
 function add_table_to_db( $ajax_data ) {
 
@@ -675,15 +673,13 @@ function add_table_to_db( $ajax_data ) {
     if ( isset( $data['table_name'] ) && !empty( $data['table_name'] ) ) {
         $table = $data['table_name'];
     } else {
-        echo json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
-        return;
+        return json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
     }
 
     // validate table name
     $check = validate_name( $table, $db->get_all_tables() );
     if ( $check !== true ) {
-        echo $check;
-        return;
+        return $check;
     }
 
     // check field names for errors
@@ -708,16 +704,14 @@ function add_table_to_db( $ajax_data ) {
         // validate field name
         $check = validate_name( $field_name, $fields );
         if ( $check !== true ) {
-            echo $check;
-            return;
+            return $check;
         }
 
         // ensure default field matches field type
         if ( $field_default && count( $field_default) > 0 && is_string( $field_default ) ) {
             $check = validate_field_value( $field_type, $field_default );
             if ( $check !== true ) {
-                echo $check;
-                return;
+                return $check;
             }
         }
 
@@ -728,12 +722,10 @@ function add_table_to_db( $ajax_data ) {
         // type cannot have default current_date (per SQL),
         // so we change the type to timestamp
         // and leave a note in the comment field
-        //$comment = false;
         $is_fk = false;
         if ( $field_type == 'date' ) {
             $field_type = 'datetime';
             $comment['column_format'] = 'date';
-            //$comment =' COMMENT \'{"column_format": "date"}\'';
         } elseif ($field_type == 'fk') { // if FK, set type the same as reference
             $field_default = false; // foreign key cannot have a default value
             $is_fk = true;
@@ -747,11 +739,10 @@ function add_table_to_db( $ajax_data ) {
                 $field_type = $field_class->get_type();
             } else {
                 if (DEBUG) {
-                    echo json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "log"=>array($fk_table, $fk_col, $field_class), "hide" => false));
+                    return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "log"=>array($fk_table, $fk_col, $field_class), "hide" => false));
                 } else {
-                    echo json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "hide" => false));
+                    return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "hide" => false));
                 }
-                return;
             }
         }
 
@@ -826,9 +817,9 @@ function add_table_to_db( $ajax_data ) {
 
         // XXX hard coded links
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
+            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
         } else {
-            echo json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
+            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
         }
 
     } else { // if error
@@ -839,15 +830,11 @@ function add_table_to_db( $ajax_data ) {
         }
 
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => implode(' - ', $bindings), 'sql' => $sql_table . $sql_table_history ));
+            return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => implode(' - ', $bindings), 'sql' => $sql_table . $sql_table_history ));
         } else {
-            echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
         }
     }
-
-    return;
-
-
 
 }
 
@@ -1081,7 +1068,7 @@ function validate_name( $name, $names ) {
  *
  * @param $table_name str - table name to be deleted
  *
- * @return void
+ * @return - error message to be used with showMsg()
  * 
 */
 function delete_table_from_db( $table_name ) {
@@ -1092,18 +1079,15 @@ function delete_table_from_db( $table_name ) {
 
 
     if ( !isset( $table_name ) ) {
-        echo json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
-        return;
+        return json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
     }
 
     if ( !in_array( $table_name, $db->get_data_tables() ) ) {
-        echo json_encode(array("msg" => "Table does not exist.", "status" => false, "hide" => false)); 
-        return;
+        return json_encode(array("msg" => "Table does not exist.", "status" => false, "hide" => false)); 
     } 
 
     if ( !in_array( $table_name_history, $db->get_history_tables() ) ) {
-        echo json_encode(array("msg" => "History table does not exist.", "status" => false, "hide" => false)); 
-        return;
+        return json_encode(array("msg" => "History table does not exist.", "status" => false, "hide" => false)); 
     } 
 
     // check if table has a key that is referenced as a PK in another table
@@ -1123,8 +1107,7 @@ function delete_table_from_db( $table_name ) {
         }
 
         $msg .="</ul><br>You must delete those field(s)/table(s) first, or remove the foreign key on this table before deleting this table.";
-        echo json_encode(array("msg"=>$msg, "status"=>false, "hide" => false));
-        return;
+        return json_encode(array("msg"=>$msg, "status"=>false, "hide" => false));
     } 
 
     // table is safe to delete
@@ -1134,28 +1117,15 @@ function delete_table_from_db( $table_name ) {
     $q2 = $db_conn->query("DROP TABLE `$table_name`");
 
     if ( count( $q1 ) == 1 && count( $q2 ) == 1 ) { // success
-        echo json_encode(array("msg" => "The table <code>$table_name</code> was properly deleted.", "status" => true, "hide" => true));
+        return json_encode(array("msg" => "The table <code>$table_name</code> was properly deleted.", "status" => true, "hide" => true));
         refresh_db_setup();
-        return;
     } else {
         if ( DEBUG ) {
-            echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false, "q1" => $q1, "q2" => $q2 ));
-            return;
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false, "q1" => $q1, "q2" => $q2 ));
         } else {
-            echo json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
-            return;
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
         }
     }
-
-
-
-
-
-
-
-
-
-
 }
 
 

@@ -14,9 +14,9 @@ A simplified CRUD front-end with built in visualization features.
 ## TODO
 - [x] create new table
 - [x] delete table
-- [ ] add item in table
-- [ ] edit item in table
-- [ ] delete item in table
+- [x] add item in table
+- [x] edit item in table
+- [x] delete item in table
 - [ ] hyper links for quick cell filtering
 - [ ] revert history
 - [ ] edit table (fields, name)
