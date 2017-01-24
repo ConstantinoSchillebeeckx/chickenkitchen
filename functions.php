@@ -815,11 +815,10 @@ function add_table_to_db( $ajax_data ) {
     if ( $stmt_table->execute() !== false && $stmt_table_history->execute() !== false ) {
         refresh_db_setup(); // update DB class
 
-        // XXX hard coded links
         if ( DEBUG ) {
-            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
+            return json_encode(array("msg" => "Table <a href='?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
         } else {
-            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
+            return json_encode(array("msg" => "Table <a href='?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
         }
 
     } else { // if error
