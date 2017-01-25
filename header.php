@@ -15,6 +15,7 @@
         <link rel="stylesheet" type="text/css" href='css/styles.css' />
         <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous" />
         <link rel="stylesheet" type="text/css" href='https://cdn.jsdelivr.net/jquery.query-builder/2.4.0/css/query-builder.default.min.css' />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.4/css/bootstrap-datepicker.min.css" integrity="sha256-5ad0JyXou2Iz0pLxE+pMd3k/PliXbkc65CO5mavx8s8=" crossorigin="anonymous" />
  
 
         <!-- JS -->
@@ -23,8 +24,8 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
         <script type="text/javascript" src="js/table.js"></script>
         <script type="text/javascript" src="js/jquery.TableCSVExport.js"></script>
-        <script type="text/javascript" src="https://cdn.rawgit.com/mistic100/jQuery.extendext/0.1.2/jQuery.extendext.min.js"></script>
-        <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery.query-builder/2.4.0/js/query-builder.min.js"></script>
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery.query-builder/2.4.1/js/query-builder.standalone.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.4/js/bootstrap-datepicker.min.js" integrity="sha256-urCxMaTtyuE8UK5XeVYuQbm/MhnXflqZ/B9AOkyTguo=" crossorigin="anonymous"></script>
         <script type="text/javascript">var DEBUG = <?php echo DEBUG; ?></script>
 
     </head>

@@ -252,8 +252,17 @@ class Database {
         return in_array($table . "_history", $this->get_all_tables());
     }
 
-    public function asJSON() {
-        return json_encode(objectToArray($this)) . ';'; // ';' so that JS doesn't complain
+
+    // return the DB structure as JSON
+    // in the form {table: {struct}, }
+    // if table is provided, will only return
+    // that table structure
+    public function asJSON( $table = False) {
+        if ( $table !== False ) {
+            return json_encode( objectToArray( $this->get_table( $table) ) );
+        } else {
+            return json_encode(objectToArray($this->struct)) . ';'; // ';' so that JS doesn't complain
+        }
     }
 
 

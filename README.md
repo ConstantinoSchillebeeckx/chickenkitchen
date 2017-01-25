@@ -4,7 +4,6 @@ A simplified CRUD front-end with built in visualization features.
 
 ## Built on
 
-- [Medoo](https://github.com/catfan/Medoo)
 - [datatables.net](https://datatables.net/)
 - [Bootstrap 3](https://getbootstrap.com/css/)
 - [jQuery](https://code.jquery.com/)
@@ -18,10 +17,10 @@ A simplified CRUD front-end with built in visualization features.
 - [x] edit item in table
 - [x] delete item in table
 - [ ] hyper links for quick cell filtering
+- [ ] advanced searching (http://querybuilder.js.org/)
 - [ ] revert history
 - [ ] edit table (fields, name)
 - [ ] batch (insert, delete, edit)
-- [ ] advanced searching (http://querybuilder.js.org/)
 
 
 ## Database setup

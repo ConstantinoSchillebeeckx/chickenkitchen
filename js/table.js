@@ -100,17 +100,12 @@ function doAJAX(data, callback) {
 
 }
 
-
 /* Clean up JS version of $db
-
 By default, the $db obj protected attributes will have a prepended '*' in the key, see:
 https://ocramius.github.io/blog/fast-php-object-to-array-conversion/
-
 This function cleans up the object so that it's easier to work with
-
 Parameters:
 - obj: <?php echo get_db()->asJSON(); ?>
-
 */
 function cleanDB(obj) {
 
@@ -131,7 +126,6 @@ function cleanDB(obj) {
     return clean;
 
 }
-
 
 
 
@@ -880,6 +874,9 @@ When setting up a table, a field can be chosen to be
 a foreign key; this will generate a drop down select
 filled with table name and field name from which to
 choose as a reference for the FK. 
+
+Function assumes a JS var db exists which contains
+the structure of the DB (this is done in add_table.php)
 
 Note that it will only list unique, non-hidden
 fields in non-history tables.

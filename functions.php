@@ -685,8 +685,9 @@ function add_table_to_db( $ajax_data ) {
     // check field names for errors
     for( $i = 1; $i<=$field_num; $i++ ) {
 
-        $field_name = str_replace(' ', '_', $data['name-' . $i]); // replace spaces with _ to make parepared statements easier
+        $comment = null; // clear it
         $comment['name'] = $data['name-' . $i];
+        $field_name = str_replace(' ', '_', $data['name-' . $i]); // replace spaces with _ to make parepared statements easier
         $field_type = $data['type-' . $i];
         $field_current = isset($data['currentDate-' . $i]) ? $data['currentDate-' . $i] : false;
         $field_required = isset($data['required-' . $i]) ? $data['required-' . $i] : false;

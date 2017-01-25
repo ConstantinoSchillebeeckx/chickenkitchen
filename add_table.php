@@ -46,7 +46,9 @@ if (isset($_GET['table'])) {
 
 <script  type="text/javascript">
     jQuery(function() {
-        // store DB as JS var in case use requests a FK field type
+        // store DB as JS var in case user requests a FK field type
+        // in which case we need to look up the FK values using this var
+        // see getFKchoices()
         var tmp = <?php echo get_db_setup()->asJSON(); // send DB to javascript var ?>;
         db = cleanDB(tmp);
 
