@@ -100,32 +100,6 @@ function doAJAX(data, callback) {
 
 }
 
-/* Clean up JS version of $db
-By default, the $db obj protected attributes will have a prepended '*' in the key, see:
-https://ocramius.github.io/blog/fast-php-object-to-array-conversion/
-This function cleans up the object so that it's easier to work with
-Parameters:
-- obj: <?php echo get_db()->asJSON(); ?>
-*/
-function cleanDB(obj) {
-
-    var clean = {};
-    var value;
-
-    for (var k in obj) {
-
-        value = obj[k];
-
-        // if obj, recurse
-        if (typeof obj[k] == "object" && obj[k] !== null) {
-            value = cleanDB(obj[k]);
-        }
-
-        clean[k.replace('\0*\0','')] = value;
-    }
-    return clean;
-
-}
 
 
 
@@ -957,7 +931,6 @@ Returns:
 function getFKchoices(id=null) {
 
     // global var db is set in the add_table WP template
-    var struct = db['struct'];
 
     var name = 'foreignKey';
     if (id) {
@@ -966,9 +939,8 @@ function getFKchoices(id=null) {
 
     var html = '<select class="form-control" name="' + name + '" required>';
     var count = 0;
-    for (var i in db['tables']) {
-        var table = db['tables'][i];
-        var tableStruct = struct[table];
+    for (var table in db) {
+        var tableStruct = db[table];
         var fieldStruct = tableStruct['struct'];
         var isHist = tableStruct['is_history'];
       

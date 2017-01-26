@@ -50,7 +50,7 @@ if (isset($_GET['table'])) {
         // in which case we need to look up the FK values using this var
         // see getFKchoices()
         var tmp = <?php echo get_db_setup()->asJSON(); // send DB to javascript var ?>;
-        db = cleanDB(tmp);
+        db = tmp.struct;
 
         jQuery('#add_field').click(); // automatically add the first field
         jQuery('#type-1').val('varchar'); // automatically set the first field type

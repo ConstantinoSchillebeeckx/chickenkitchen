@@ -32,9 +32,10 @@ and options for the query builder.
     // get the DB structure
     if (typeof db == 'undefined') {
         var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
+        db = tmp.struct; // global
     }
 
-    var filters = setup_query_builder_filter( cleanDB(tmp).struct );
+    var filters = setup_query_builder_filter( db );
 
     // build the query builder
     jQuery('#query-builder').queryBuilder({
@@ -42,11 +43,13 @@ and options for the query builder.
     });
 
     jQuery('#searchSubmit').on('click', function() {
-      var result = jQuery('#query-builder').queryBuilder('getSQL', 'named');
-      
-      if (!jQuery.isEmptyObject(result)) {
-        alert(JSON.stringify(result, null, 2));
-      }
+        var result = jQuery('#query-builder').queryBuilder('getSQL', 'named');
+
+        // getDBdata();
+
+        if (!jQuery.isEmptyObject(result)) {
+            alert(JSON.stringify(result, null, 2));
+        }
     });
 
 </script>

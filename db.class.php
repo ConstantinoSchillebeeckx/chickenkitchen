@@ -25,10 +25,10 @@ TODO
 */
 class Database {
 
-    protected $tables = array(); // array of tables associated with user's company
-    protected $struct = array(); // associative array where each table is a key and the value is a class table()
-    protected $name = NULL; // DB name e.g. db215537_EL
-    protected $company = NULL; // company associated with logged in user
+    public $tables = array(); // array of tables associated with user's company
+    public $struct = array(); // associative array where each table is a key and the value is a class table()
+    public $name = NULL; // DB name e.g. db215537_EL
+    public $company = NULL; // company associated with logged in user
 
     public function __construct( $comp=null, $db ) {
 
@@ -258,9 +258,9 @@ class Database {
     // that table structure
     public function asJSON( $table = False) {
         if ( $table !== False ) {
-            return json_encode( objectToArray( $this->get_table( $table) ) ) . ';';
+            return json_encode( get_object_vars( $this->get_table( $table ) ) ) . ';';
         } else {
-            return json_encode(objectToArray($this->struct)) . ';'; // ';' so that JS doesn't complain
+            return json_encode( get_object_vars( $this ) ) . ';'; // ';' so that JS doesn't complain
         }
     }
 
@@ -294,13 +294,6 @@ class Database {
     }
 }
 
-// http://stackoverflow.com/a/2476954/1153897
-function objectToArray ($object) {
-    if(!is_object($object) && !is_array($object))
-        return $object;
-
-    return array_map('objectToArray', (array) $object);
-}
 
 
 /* Table class defines properties of a given database table
@@ -314,10 +307,10 @@ Class roperties:
 */
 class Table {
 
-    protected $fields = array();
-    protected $name = NULL;
-    protected $is_history = false;
-    protected $struct = array();
+    public $fields = array();
+    public $name = NULL;
+    public $is_history = false;
+    public $struct = array();
     
 
     public function __construct($name, $fks, $db, $is_history) {
@@ -502,20 +495,20 @@ Class properties:
 */
 class Field {
 
-    protected $is_fk; 
-    protected $fk_ref;
-    protected $hidden; 
-    protected $is_ref;
-    protected $ref; 
-    protected $type;
-    protected $required;
-    protected $key;
-    protected $default;
-    protected $extra;
-    protected $name;
-    protected $table;
-    protected $comment;
-    protected $length;
+    public $is_fk; 
+    public $fk_ref;
+    public $hidden; 
+    public $is_ref;
+    public $ref; 
+    public $type;
+    public $required;
+    public $key;
+    public $default;
+    public $extra;
+    public $name;
+    public $table;
+    public $comment;
+    public $length;
 
     public function __construct($table, $name, $fks, $info, $db) {
         $this->name = $name;
