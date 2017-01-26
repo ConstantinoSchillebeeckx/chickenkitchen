@@ -187,7 +187,7 @@ class SSP {
             }
         }
 
-        // filter on cell (when clicking hyperlink in cell)
+        // query builder filter
         if ( isset( $request['filter'] ) && is_array( $request['filter'] ) ) {
             foreach ( $request['filter'] as $col => $str ) {
                 $binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );

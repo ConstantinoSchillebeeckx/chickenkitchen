@@ -25,7 +25,6 @@ TODO
 */
 class Database {
 
-
     protected $tables = array(); // array of tables associated with user's company
     protected $struct = array(); // associative array where each table is a key and the value is a class table()
     protected $name = NULL; // DB name e.g. db215537_EL
@@ -259,7 +258,7 @@ class Database {
     // that table structure
     public function asJSON( $table = False) {
         if ( $table !== False ) {
-            return json_encode( objectToArray( $this->get_table( $table) ) );
+            return json_encode( objectToArray( $this->get_table( $table) ) ) . ';';
         } else {
             return json_encode(objectToArray($this->struct)) . ';'; // ';' so that JS doesn't complain
         }

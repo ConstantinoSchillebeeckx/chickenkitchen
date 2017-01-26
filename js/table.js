@@ -335,6 +335,70 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
 };
 
 
+/**
+
+Function used to setup the query builder for advanced search. Will
+create the 'filter' option for the builder based on the field types
+of the current table.
+
+Param: db object
+
+Returns: json 'filter' option
+
+*/
+function setup_query_builder_filter( db ) {
+
+
+    // build filter for query builder
+    var filters = [];
+    for (var field in db) {
+        var field_dat = db[field];
+    
+        if (field_dat.hidden == false) {
+            var tmp = {};
+            tmp.id = field_dat.comment.name;
+            tmp.label = field;
+            type = field_dat.type; // varchar, datetime, etc
+
+            // get field type
+            if (type.indexOf('varchar') !== -1) {
+                type = 'string';
+            } else if (type.indexOf('datetime') !== -1) {
+                if (field_dat.comment.column_format == 'date') { // date type also stored as datetime on backend
+                    type = 'date';
+                } else {
+                    type = 'datetime';
+                }
+            } else if (type.indexOf('float') !== -1) {
+                type = 'double';
+            } else if (type.indexOf('int') !== -1) {
+                type = 'integer';
+            }
+            tmp.type = type;
+
+            // set operators and options based on type
+            if (tmp.type == 'string') {
+                tmp.operators = ['equal', 'not_equal', 'in', 'not_in', 'begins_with', 'not_begins_with', 'contains', 'not_contains', 'ends_with', 'not_ends_with', 'is_empty', 'is_not_empty', 'is_null', 'is_not_null'];
+            } else if (tmp.type == 'integer' || tmp.type == 'double') {
+                tmp.operators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'not_between', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty'];
+            } else if (tmp.type == 'date' || tmp.type == 'datetime') {
+                tmp.operators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'not_between', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty'];
+                tmp.validation = {format: 'YYYY/MM/DD'};
+                tmp.plugin = 'datepicker';
+                tmp.plugin_config = {format: 'yyyy/mm/dd', todayBtn: 'linked', todayHighlight: true, autoclose: true};
+            }
+
+            filters.push(tmp);
+        }
+
+    }
+
+    return filters;
+}
+
+
+
+
 
 
 /* Function called when action button delete clicked
