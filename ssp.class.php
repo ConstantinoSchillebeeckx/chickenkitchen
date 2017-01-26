@@ -187,12 +187,24 @@ class SSP {
             }
         }
 
-        // query builder filter
+        // do the fitering for the case when
+        // - A) viewing history of an item and we need a particular UID_fk
+        // - B) filtering with the query builder
         if ( isset( $request['filter'] ) && is_array( $request['filter'] ) ) {
-            foreach ( $request['filter'] as $col => $str ) {
-                $binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );
-                $columnSearch[] = "`".$col."` LIKE ".$binding;
+            $filters = $request['filter'];
+
+            if ( array_key_exists( 'sql', $filters )  && array_key_exists( 'params', $filters ) ) { // B)
+                $columnSearch[] = '(' . $filters['sql'] . ')';
+                foreach ( $filters['params'] as $col => $str ) {
+                    $binding = self::bind( $bindings, $str, PDO::PARAM_STR, $col );
+                }
+            } else { // A)
+                foreach ( $filters as $col => $str ) {
+                    $binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );
+                    $columnSearch[] = "`".$col."` LIKE ".$binding;
+                }
             }
+
         }
 
         // Combine the filters into a single string
@@ -275,7 +287,7 @@ class SSP {
             "recordsTotal"    => intval( $recordsTotal ),
             "recordsFiltered" => intval( $recordsFiltered ),
             "data"            => self::data_output( $columns, $data ),
-            "where" => $where
+            "log" => $bindings, "filter" => $request['filter'], "where" => $where
         );
     }
 
@@ -444,9 +456,11 @@ class SSP {
      * @return string       Bound key to be used in the SQL where this parameter
      *   would be used.
      */
-    static function bind ( &$a, $val, $type )
+    static function bind ( &$a, $val, $type, $key=False )
     {
-        $key = ':binding_'.count( $a );
+        if ($key == False ) {
+            $key = ':binding_'.count( $a );
+        }
 
         $a[] = array(
             'key' => $key,

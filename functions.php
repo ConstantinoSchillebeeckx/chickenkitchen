@@ -142,12 +142,11 @@ function build_table( $table ) {
             // This will do the AJAX call, func defined in js/table.js
             var table = <?php echo json_encode( $table ); ?>;
             var columns = <?php echo json_encode( $fields ); ?>;
-            var filter = <?php echo json_encode( $filter ); ?>;
             var hidden = <?php echo json_encode( $hidden ); ?>;
             var pk = <?php echo json_encode( $pk ); ?>;
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
-            getDBdata(table, pk, columns, filter, hidden, null, hasHistory); // function will populate table and hidden any columns needed
+            getDBdata(table, pk, columns, null, hidden, null, hasHistory); // function will populate table and hidden any columns needed
         </script>
 
     <?php } else {

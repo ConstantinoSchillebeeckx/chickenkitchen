@@ -285,6 +285,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
 
     if (DEBUG) console.log(data);
 
+
     historyTable = jQuery(tableID).DataTable( {
         "retrieve": true,
         "processing": true,
@@ -298,7 +299,6 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "searching": tableID == '#datatable',
         "info": tableID == '#datatable',
     } );
-
 
     // destroy global so that we only set this for history table
     // see workaround above

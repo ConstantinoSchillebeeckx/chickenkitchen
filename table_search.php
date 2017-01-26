@@ -21,7 +21,7 @@ and options for the query builder.
     <div id="collapseOne" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingOne">
       <div class="panel-body">
         <div id="query-builder"></div> <!-- will get filled by JS -->
-        <input class="btn btn-info pull-right" type="button" value="Go!" id="searchSubmit"></input>
+        <input style="margin-top:30px;" class="btn btn-info pull-right" type="button" value="Go!" id="searchSubmit"></input>
       </div>
     </div>
   </div>
@@ -43,13 +43,12 @@ and options for the query builder.
     });
 
     jQuery('#searchSubmit').on('click', function() {
-        var result = jQuery('#query-builder').queryBuilder('getSQL', 'named');
+        var filter = jQuery('#query-builder').queryBuilder('getSQL', 'named');
 
-        // getDBdata();
-
-        if (!jQuery.isEmptyObject(result)) {
-            alert(JSON.stringify(result, null, 2));
-        }
+        // query database for table data
+        // vars are all set by build_table() in functions.php
+        jQuery('#datatable').DataTable().destroy(); // destroy so that we can re-query table
+        getDBdata(table, pk, columns, filter, hidden, null, true);
     });
 
 </script>
