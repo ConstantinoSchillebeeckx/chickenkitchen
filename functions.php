@@ -1130,6 +1130,55 @@ function delete_table_from_db( $table_name ) {
 
 
 
+/**
+ * Generate all the HTML for the batch form
+ *
+ * Batch form used when user wants to add,
+ * edit or delete items in given table in
+ * batch format. Will generate the input
+ * form needed to do the batch editing.
+ *
+*/
+function batch_form() { ?>
+
+
+    <form class="form-horizontal" onsubmit="return false;" id="batchForm">
+        <label class="radio-inline">
+            <input type="radio" name="batchForm" id="batchAdd" value="batchAdd" checked> Add
+        </label>
+        <label class="radio-inline">
+            <input type="radio" name="batchForm" id="batchEdit" value="batchEdit"> Edit
+        </label>
+        <label class="radio-inline">
+            <input type="radio" name="batchForm" id="batchDelete" value="batchDelete"> Delete
+        </label>
+
+        <input type="file" name="batchFile" required>
+        <button type="button" class="btn btn-warning" id="confirmEdit" onclick="batchFormSubmit(event)">Submit</button>
+        <input id="submit_handle" type="submit" style="display: none"> <!-- needed for validating form -->
+    </form>
+
+    <script>
+        var table = '<?php echo $_GET['table']; ?>'; // needed for AJAX
+    </script>
+
+
+<?php }
+
+
+
+
+/**
+ * Handle AJAX request for batch add/edit/delete
+ *
+ *
+ *
+ *
+ *
+*/
+function batch_item_in_db( $ajax_data ) {
+    return json_encode(array("msg" => "Right here!", "status" => true, "hide" => false ));
+}
 
 
 

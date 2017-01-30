@@ -26,6 +26,9 @@
         } else if ( $action == 'editItem' ) {
             echo edit_item_in_db( $_GET );
             $error = false;
+        } else if ( $action == 'batchEdit' ) { // handles add, edit, delete
+            echo batch_item_in_db( $_GET );
+            $error = false;
         }
     
     }

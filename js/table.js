@@ -459,8 +459,8 @@ function editItem(event, pk_id) {
     if (jQuery('form')[0].checkValidity()) { // if valid, load
         var data = {
                 "action": "editItem", 
-                "table": table, // var set by build_table() in EL.php
-                "pk": pk, // var set by build_table() in EL.php
+                "table": table, // var set by build_table() in functions.php
+                "pk": pk, // var set by build_table() in functions.php
                 "original_row": originalRowVals, // var set in editModal()
                 "dat": getFormData('#editItemForm'), // form values
                 "pk_id": pk_id,
@@ -480,30 +480,44 @@ function editItem(event, pk_id) {
             if (DEBUG) console.log(ajaxResponse);
         });
 
-        // send data to server
-/*
-        doAJAX(data, function() {
-            if (ajaxStatus) {
-                if (ajaxResponse.status === true) {
-                    jQuery('#datatable').DataTable().draw('page'); // refresh table
-                    jQuery('#editModal').modal('toggle'); // hide modal
-                    showMsg(ajaxResponse);
-                } else { // if an error was caught, show message in modal
-                    showMsg(ajaxResponse, ".modal-body");
-                }
-                console.log(ajaxResponse);
-            } else {
-                showMsg({"msg":"There was an error editing the item, please try again.", "status": false, 'hide': false});
-                console.log(ajaxReponse);
-
-                jQuery('#editModal').modal('toggle'); // hide modal
-            }
-        });
-*/
     }
 }
 
 
+
+
+/* onclick event handler for table batch edit form
+
+This handles all cases for batch actions including
+add, edit and delete.
+
+Submits AJAX request to server with all proper information
+and then displays message to user based on response.
+
+*/
+function batchFormSubmit( event ) {
+
+    event.preventDefault(); // cancel form submission
+    jQuery('#submit_handle').click(); // needed to validate form
+
+    if (jQuery('form')[0].checkValidity()) { // if valid, load
+        var data = {
+                "action": "batchEdit", 
+                "table": table, // var set by batch_form in functions.php
+                "dat": getFormData('#batchForm'), // form values
+        }
+        
+        if (DEBUG) console.log(data);
+
+
+        // send data to server
+        doAJAX(data, function() {
+            jQuery('#editModal').modal('toggle'); // hide modal
+            showMsg(ajaxResponse);
+            if (DEBUG) console.log(ajaxResponse);
+        });
+    }
+}
 
 
 
