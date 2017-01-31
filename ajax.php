@@ -7,9 +7,10 @@
 
     $error = true;
 
-    if( isset( $_GET['action'] ) && !empty( $_GET['action'] ) ) {
+    // in the case of a batchUpdate, the request comes in as a _POST not a _GET
+    $action = isset( $_GET['action'] ) ? $_GET['action'] : $_POST['action'];
 
-        $action = $_GET['action'];
+    if( isset( $action ) ) {
 
         if ( $action == 'addTable' && isset( $_GET['field_num'] ) && isset( $_GET['dat'] ) && isset( $_GET['dat']['table_name'] ) ) {
             echo add_table_to_db( $_GET ); // add a new table
@@ -26,8 +27,8 @@
         } else if ( $action == 'editItem' ) {
             echo edit_item_in_db( $_GET );
             $error = false;
-        } else if ( $action == 'batchEdit' ) { // handles add, edit, delete
-            echo batch_item_in_db( $_GET );
+        } else if ( $action == 'batchUpdate' ) { // handles add, edit, delete
+            echo batch_update_db( $_POST, $_FILES );
             $error = false;
         }
     
@@ -35,6 +36,7 @@
 
     // check for error
     if ( $error ) {
+
         echo json_encode( array( 'msg'=>'Ensure "action" is sent in AJAX data.', 'status'=>false, 'hide'=> false, "log" => $_GET ));
 
     }

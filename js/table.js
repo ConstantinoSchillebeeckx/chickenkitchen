@@ -131,6 +131,21 @@ function getFormData(sel) {
         data[this.name] = val;
     })
 
+    // input type='file' doesn't work with serializeArray
+    var files = $('input[type=file]')[0].files;
+    if (files.length) {
+
+        // Create a new FormData object.
+        var formData = new FormData();
+        formData.append('file', files[0]);
+
+for (var [key, value] of formData.entries()) { 
+  console.log(key, value);
+}
+
+
+    }
+
     return data
 
 }
@@ -501,22 +516,36 @@ function batchFormSubmit( event ) {
     jQuery('#submit_handle').click(); // needed to validate form
 
     if (jQuery('form')[0].checkValidity()) { // if valid, load
-        var data = {
-                "action": "batchEdit", 
-                "table": table, // var set by batch_form in functions.php
-                "dat": getFormData('#batchForm'), // form values
-        }
-        
-        if (DEBUG) console.log(data);
 
+        // generate form for XHR send
+        var formData = new FormData($('#batchForm')[0]);
 
-        // send data to server
-        doAJAX(data, function() {
-            jQuery('#editModal').modal('toggle'); // hide modal
-            showMsg(ajaxResponse);
-            if (DEBUG) console.log(ajaxResponse);
-        });
+        // since we're uploading a file, our AJAX request needs to be
+        // modified a bit to be able to use FormData/XHR
+        jQuery.ajax({
+            url: 'ajax.php',
+            type: 'POST',
+            xhr: function() {  // custom xhr
+                myXhr = $.ajaxSettings.xhr();
+                return myXhr;
+            },
+            success: completeHandler = function(response) {
+                
+                var ajaxResponse = JSON.parse(response);
+                showMsg(ajaxResponse);
+                if (DEBUG) console.log(ajaxResponse);
+            },
+            error: errorHandler = function(response) {
+                var ajaxResponse = JSON.parse(response);
+                if (DEBUG) console.log(ajaxResponse);
+            },
+            data: formData,
+            cache: false,
+            contentType: false,
+            processData: false
+        }, 'json');
     }
+
 }
 
 

@@ -454,6 +454,50 @@ function add_item_to_db( $ajax_data ) {
 }
 
 
+/**
+ * Handle AJAX request for batch add/edit/delete
+ *
+ * @params 
+ * (assoc arr) $ajax_data with keys:
+ *  - (str) table - name of table acting on
+ *  - (str) batchType - type of batch request will be
+ *    one of batchEdit, batchAdd, batchDelete
+ * (assoc arr) $files $_FILES content
+ *
+ * @return - error message for use with showMsg()
+ *
+*/
+function batch_update_db( $ajax_data, $files ) {
+
+    $type = $ajax_data['batchType'];
+
+    if ( $type == 'batchAdd') {
+
+        // get list of columns that should be checked:
+        // not null, FK, unique
+
+        // load file and loop over each line checking:
+        // columns listed above
+        // if it can be inserted validate_row()
+
+        // if valid, append to batch form of SQL add
+
+    } else if ( $type == 'batchEdit') {
+
+        // need to handle concern of uniquely identifying row
+        // in cases where table has to PK set by user
+
+    } else if ( $type == 'batchDelete') {
+
+        // need to handle concern of uniquely identifying row
+        // in cases where table has to PK set by user
+
+    }
+
+
+    return json_encode(array("msg" => "Right here!", "status" => true, "hide" => false, "log" => $ajax_data ));
+}
+
 
 /**
  * Function will delete a row from a given datatable
@@ -1133,27 +1177,31 @@ function delete_table_from_db( $table_name ) {
 /**
  * Generate all the HTML for the batch form
  *
+ * @Param (str) $table - name of table to act on
+ *
  * Batch form used when user wants to add,
  * edit or delete items in given table in
  * batch format. Will generate the input
  * form needed to do the batch editing.
  *
 */
-function batch_form() { ?>
+function batch_form( $table ) { ?>
 
 
     <form class="form-horizontal" onsubmit="return false;" id="batchForm">
         <label class="radio-inline">
-            <input type="radio" name="batchForm" id="batchAdd" value="batchAdd" checked> Add
+            <input type="radio" name="batchType" id="batchAdd" value="batchAdd" checked> Add
         </label>
         <label class="radio-inline">
-            <input type="radio" name="batchForm" id="batchEdit" value="batchEdit"> Edit
+            <input type="radio" name="batchType" id="batchEdit" value="batchEdit"> Edit
         </label>
         <label class="radio-inline">
-            <input type="radio" name="batchForm" id="batchDelete" value="batchDelete"> Delete
+            <input type="radio" name="batchType" id="batchDelete" value="batchDelete"> Delete
         </label>
 
-        <input type="file" name="batchFile" required>
+        <input type="file" name="batchFile" id="batchFile" required>
+        <input name="table" value="<?php echo $table ?>" style="display: none">
+        <input name="action" value='batchUpdate' style="display: none">
         <button type="button" class="btn btn-warning" id="confirmEdit" onclick="batchFormSubmit(event)">Submit</button>
         <input id="submit_handle" type="submit" style="display: none"> <!-- needed for validating form -->
     </form>
@@ -1168,17 +1216,6 @@ function batch_form() { ?>
 
 
 
-/**
- * Handle AJAX request for batch add/edit/delete
- *
- *
- *
- *
- *
-*/
-function batch_item_in_db( $ajax_data ) {
-    return json_encode(array("msg" => "Right here!", "status" => true, "hide" => false ));
-}
 
 
 

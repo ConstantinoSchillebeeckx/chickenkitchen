@@ -17,7 +17,7 @@
             <h1><?php echo isset($_GET['table']) ? "Batch edit table <code>" . $_GET['table'] . "</code>" : "View tables" ?></h1>
         </div>
     </div> 
-    <?php isset($_GET['table']) ? batch_form() : list_tables() ?>
+    <?php isset($_GET['table']) ? batch_form( $_GET['table'] ) : list_tables() ?>
 </div>
 
 
