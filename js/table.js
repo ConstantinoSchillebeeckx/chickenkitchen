@@ -131,21 +131,6 @@ function getFormData(sel) {
         data[this.name] = val;
     })
 
-    // input type='file' doesn't work with serializeArray
-    var files = $('input[type=file]')[0].files;
-    if (files.length) {
-
-        // Create a new FormData object.
-        var formData = new FormData();
-        formData.append('file', files[0]);
-
-for (var [key, value] of formData.entries()) { 
-  console.log(key, value);
-}
-
-
-    }
-
     return data
 
 }

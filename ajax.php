@@ -28,7 +28,7 @@
             echo edit_item_in_db( $_GET );
             $error = false;
         } else if ( $action == 'batchUpdate' ) { // handles add, edit, delete
-            echo batch_update_db( $_POST, $_FILES );
+            echo batch_update_db( $_POST, $_FILES['batchFile'] );
             $error = false;
         }
     

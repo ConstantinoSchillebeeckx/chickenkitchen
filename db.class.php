@@ -171,6 +171,30 @@ class Database {
         }
     }
 
+    // given a table name, will return an assoc array
+    // where keys are fields which must be unique and
+    // the value are the values that field currently has
+    public function get_unique_vals( $table ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            $unique_cols = $this->get_unique( $table );
+            $visible_fields = $this->get_visible_fields( $table );
+
+            $unique_vals = [];
+            if ( $unique_cols !== False ) {
+    
+                foreach( $unique_cols as $field ) {
+                    $vals = $this->get_field( $table, $field)->get_unique_vals();
+                    if ( $vals !== False && in_array( $field, $visible_fields ) ) $unique_vals[$field] = $vals;
+                }                
+
+            }
+            return $unique_vals;
+        } else {
+            return false;
+        }
+        
+    }
+
 
     // given a table (name) and field return its Field class
     public function get_field($table, $field) {
@@ -208,12 +232,12 @@ class Database {
         }
     }
 
-    // given a table return all fields in table as array
+    // given a table return all fields (including hidden) in table as array
     public function get_all_fields($table) {
         if ( in_array( $table, $this->get_all_tables() ) ) {
             return $this->get_struct()[$table]->get_fields();
         } else {
-            return false;
+            return array();
         }
     }
 
@@ -223,18 +247,42 @@ class Database {
         if ( in_array( $table, $this->get_all_tables() ) ) {
             return $this->get_struct()[$table]->get_visible_fields();
         } else {
-            return false;
+            return array();
         }
     }
 
-    // given a table return all fields in table as array
+    // given a table return all required fields in table as array
     public function get_required_fields($table) {
         if ( in_array( $table, $this->get_all_tables() ) ) {
             return $this->get_struct()[$table]->get_required();
         } else {
+            return array();
+        }
+    }
+
+    
+    // given a table, will return an assoc arr where keys
+    // are fields that have a FK, and the value are the 
+    // FK values it can have
+    public function get_fk_vals( $table ) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            $table_fields = $this->get_visible_fields( $table );
+
+            $fk_obj = [];
+            foreach ( $table_fields as $field ) {
+                $fks = $this->get_field( $table, $field)->get_fks();
+                if ( $fks !== False ) {
+                    $fk_obj[$field] = $fks;
+                }
+            }
+
+            return $fk_obj;
+
+        } else {
             return false;
         }
     }
+
 
     // pretty print
     public function show() {
@@ -468,6 +516,8 @@ class Table {
     }
 
 
+
+
     // pretty print
     public function show() {
         echo '<pre style="font-size:8px;">';
@@ -652,10 +702,8 @@ class Field {
                 foreach($result as $row) {
                     $vals[] = $row[$this->name];
                 }
-                return $vals;
-            } else {
-                return false;
             }
+            return $vals;
         } else {
             return false;
         }

@@ -469,18 +469,54 @@ function add_item_to_db( $ajax_data ) {
 */
 function batch_update_db( $ajax_data, $files ) {
 
+    // init
     $type = $ajax_data['batchType'];
+    $table = $ajax_data['table'];
+    $db = get_db_setup();
+
+    // check that we have everything
+    if ( !isset( $table ) || empty( $table) ) {
+        return json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
+    }
+    $visible_fields = $db->get_visible_fields( $table );
 
     if ( $type == 'batchAdd') {
 
         // get list of columns that should be checked:
         // not null, FK, unique
+        $required_fields = $db->get_required_fields( $table );
+        $fk_vals = $db->get_fk_vals( $table );
+        $unique_vals = $db->get_unique_vals( $table );
 
-        // load file and loop over each line checking:
-        // columns listed above
-        // if it can be inserted validate_row()
+        // load file and loop over each line checking that it is valid
+        if ( mime_content_type( $files['tmp_name'] ) == "text/plain" ) {
 
-        // if valid, append to batch form of SQL add
+            // figure out delimiter
+            $delimiters = array(',','\t',';','|',':');
+            $delim = getFileDelimiter($files['tmp_name'], 5, $delimiters); // figure out delimiter
+
+            if ( !in_array( $delim, $delimiters ) ) {
+                return json_encode(array("msg" => 'You must use one of the following delimiters: <code>' . implode('</code>,<code>', $delimiters) . "</code>" , "status" => false, "hide" => false));
+            }
+
+            // loop through file and validate each row
+            $file = new SplFileObject( $files['tmp_name'] );
+            $header = explode( $delim, $file->fgets() );
+            while (!$file->eof()) {
+                $line = explode( $delim, $file->fgets() );
+
+                $validate = validate_row( array_combine( $header, $line ), $table, False, $visible_fields, $required_fields, $fk_vals, $unique_vals );
+                if ($validate !== true ) {
+                    return $validate;
+                }
+
+            }
+
+            // if valid, append to batch form of SQL add
+
+        } else {
+            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false));
+        }
 
     } else if ( $type == 'batchEdit') {
 
@@ -495,8 +531,56 @@ function batch_update_db( $ajax_data, $files ) {
     }
 
 
-    return json_encode(array("msg" => "Right here!", "status" => true, "hide" => false, "log" => $ajax_data ));
+    return json_encode(array("msg" => "Right here!", "status" => true, "hide" => false, "log" => $delim ));
 }
+
+
+
+
+
+
+/**
+ * Automatically find out what type of delimiter is
+ * used in the file.
+ *
+ * http://stackoverflow.com/a/23608388/1153897
+ *
+ * @params
+ * (str) $file - name/location of file to check
+ * (int) $checkLines - number of lines to check in file
+ * (arr) $delimeters - array of allowable delimiters
+ *
+ * @returns - (str) delimiter used in file
+ *
+ *
+*/
+function getFileDelimiter($file, $checkLines = 2, $delimiters){
+        $file = new SplFileObject($file);
+        $results = array();
+        $i = 0;
+         while($file->valid() && $i <= $checkLines){
+            $line = $file->fgets();
+            foreach ($delimiters as $delimiter){
+                $regExp = '/['.$delimiter.']/';
+                $fields = preg_split($regExp, $line);
+                if(count($fields) > 1){
+                    if(!empty($results[$delimiter])){
+                        $results[$delimiter]++;
+                    } else {
+                        $results[$delimiter] = 1;
+                    }   
+                }
+            }
+           $i++;
+        }
+        $results = array_keys($results, max($results));
+        return $results[0];
+    }
+
+
+
+
+
 
 
 /**
@@ -922,34 +1006,48 @@ function bind_pdo($bindings, $stmt) {
 
 /**
  * Validate row values by checking that:
- * - each field value is valide for the field type
+ * - each field value is valid for the field type
  *   (e.g. str for str field, int for int field)
  * - value is unique if field is unique type
  * - value not null if field is required
+ * - value is in ref field if field is a FK
  *
  * @param
  * (assoc. arr.) $dat row data being validated with
  *  table fields as keys and cell value as value
  * (str) $table - table name for row
- * (bool) $edit - in the case of a row being edited
+ * (bool) [optional] $edit - in the case of a row being edited
  * $dat will only be the changes to the row which
  * may not include a field that is required, in this
  * case the 'field required' check isn't performed.
  *
+ * The following fields are optional and used when validing
+ * a row in a batch fashion:
+ * (arr.) $required_fields - list of fields in table with NOT NULL
+ * (assoc. arr.) $fk_vals - keys are fields that have an FK constraint
+ *  and the value is an array of values that FK can have
+ * (assoc. arr.) $unique_vals - keys are fields that have a unique constraint
+ *  and the value is an array of unique values currently in the field
+ *
+ *
+ *
  * @return json encoded error message, otherwise true
  *
 */
-function validate_row( $dat, $table, $edit=False ) {
+function validate_row( $dat, $sent_fields, $table, $edit=False, $visible_fields=False, $required_fields=False, $fk_vals=False, $unique_vals=False ) {
 
     $db = get_db_setup();
-    $all_fields = $db->get_visible_fields( $table );
+    if ($visible_fields === False) $visible_fields = $db->get_visible_fields( $table );
+    if ($required_fields === False) $required_fields = $db->get_required_fields( $table );
+    if ($fk_vals === False) $fk_vals = $db->get_fk_vals( $table );
+    if ($unique_vals === False) $unique_vals = $db->get_unique_vals( $table );
     $sent_fields = array_keys( $dat );
 
     // go through each field of the table and check 
     // that valid information was sent for it
-    foreach ( $all_fields as $field_name ) {
+    foreach ( $visible_fields as $field_name ) {
 
-        $field_required = $db->is_field_required( $table, $field_name );
+        $field_required = in_array( $field_name, $required_fields );
         if ( in_array( $field_name, $sent_fields ) ) {
 
             $field_type = $db->get_field( $table, $field_name );
@@ -964,9 +1062,13 @@ function validate_row( $dat, $table, $edit=False ) {
                 }
 
                 // validate field is unique
-                $check = validate_field_unique_value( $table, $field_name, $field_val );
-                if ( $check !== true ) {
-                    return $check;
+                if ( in_array( $field_name, array_keys( $unique_vals ) ) && in_array( $field_val, $unique_vals[$field_name] ) ) {
+                    return json_encode(array("msg" => "The item value <code>$field_val</code> you are trying to add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                }
+
+                // validate FK field has proper value
+                if ( in_array( $field_name, array_keys( $fk_vals ) ) && !in_array( $field_val, $fk_vals[$field_name] ) ) {
+                    return json_encode(array("msg" => "The item value <code>$value</code> you are trying to add already exists in the unique field <code>$field</code>, please choose another.", "status" => false, "hide" => false));
                 }
 
             } else if ( $field_required ) {
@@ -986,41 +1088,6 @@ function validate_row( $dat, $table, $edit=False ) {
     return true;
 }
 
-
-/**
- * Check whether value breaks unique constraint of field in
- * table.
- *
- * @param
- * (str) $table - name of table value needs to be put in
- * (str) $field - field name in table to check whether value is
- *  unique against
- * (str/int) $value - value to check for uniqueness
- *
- * @return err message if value not unique, true otherwse
- *
-*/
-function validate_field_unique_value( $table, $field, $value ) {
-
-    $db = get_db_setup();
-    $db_conn = get_db_conn();
-    
-    $unique_fields = $db->get_unique( $table );
-
-    // check if field has unique requirement first
-    if ( is_array($unique_fields) && in_array( $field, $unique_fields ) ) {
-        
-        // get unique values for field currently in DB
-        $unique_results = $db_conn->query("SELECT DISTINCT `$field` FROM `$table`")->fetchAll(PDO::FETCH_COLUMN); // these results will always all be strings, so we check against string version of $value
-        if ( in_array( (string)$value, $unique_results ) ) {
-            return json_encode(array("msg" => "The item value <code>$value</code> you are trying to add already exists in the unique field <code>$field</code>, please choose another.", "status" => false, "hide" => false));
-        }
-    
-    }
-
-    return true;
-
-}
 
 
 
