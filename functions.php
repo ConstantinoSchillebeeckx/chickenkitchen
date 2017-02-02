@@ -478,45 +478,10 @@ function batch_update_db( $ajax_data, $files ) {
     if ( !isset( $table ) || empty( $table) ) {
         return json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
     }
-    $visible_fields = $db->get_visible_fields( $table );
 
     if ( $type == 'batchAdd') {
 
-        // get list of columns that should be checked:
-        // not null, FK, unique
-        $required_fields = $db->get_required_fields( $table );
-        $fk_vals = $db->get_fk_vals( $table );
-        $unique_vals = $db->get_unique_vals( $table );
-
-        // load file and loop over each line checking that it is valid
-        if ( mime_content_type( $files['tmp_name'] ) == "text/plain" ) {
-
-            // figure out delimiter
-            $delimiters = array(',','\t',';','|',':');
-            $delim = getFileDelimiter($files['tmp_name'], 5, $delimiters); // figure out delimiter
-
-            if ( !in_array( $delim, $delimiters ) ) {
-                return json_encode(array("msg" => 'You must use one of the following delimiters: <code>' . implode('</code>,<code>', $delimiters) . "</code>" , "status" => false, "hide" => false));
-            }
-
-            // loop through file and validate each row
-            $file = new SplFileObject( $files['tmp_name'] );
-            $header = explode( $delim, $file->fgets() );
-            while (!$file->eof()) {
-                $line = explode( $delim, $file->fgets() );
-
-                $validate = validate_row( array_combine( $header, $line ), $table, False, $visible_fields, $required_fields, $fk_vals, $unique_vals );
-                if ($validate !== true ) {
-                    return $validate;
-                }
-
-            }
-
-            // if valid, append to batch form of SQL add
-
-        } else {
-            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false));
-        }
+        return batch_add($db, $table, $files);
 
     } else if ( $type == 'batchEdit') {
 
@@ -530,12 +495,98 @@ function batch_update_db( $ajax_data, $files ) {
 
     }
 
-
-    return json_encode(array("msg" => "Right here!", "status" => true, "hide" => false, "log" => $delim ));
 }
 
 
+/**
+ * Execute batch add
+ * 
+ * @params:
+ * (db class) $db - db setup
+ * (str) $table - name of table being acted on
+ * (obj) $files - $_FILES['batchFile']
+ * 
+ * @returns:
+ * json encoded error message for use with showMsg()
+ * 
+*/
+function batch_add($db, $table, $files ) {
 
+    // get list of columns that should be checked:
+    // not null, FK, unique
+    $required_fields = $db->get_required_fields( $table );
+    $fk_vals = $db->get_fk_vals( $table );
+    $unique_vals = $db->get_unique_vals( $table );
+    $visible_fields = $db->get_visible_fields( $table );
+
+
+    // check if valid file type supplied
+    if ( mime_content_type( $files['tmp_name'] ) != "text/plain" ) {
+        if (DEBUG) {
+            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false, "log" => mime_content_type( $files['tmp_name'] ) ));
+        } else {
+            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false));
+        }
+    }
+
+
+
+    // figure out delimiter
+    $delimiters = array(',','\t',';','|',':');
+    $delim = getFileDelimiter($files['tmp_name'], 5, $delimiters); // figure out delimiter
+
+    if ( !in_array( $delim, $delimiters ) ) {
+        return json_encode(array("msg" => 'You must use one of the following delimiters: <code>' . implode('</code>,<code>', $delimiters) . "</code>" , "status" => false, "hide" => false));
+    }
+
+
+
+    // loop through file and validate each row
+    if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
+        $count = 0;
+        $bind_vals = [];  // validated row values to batch insert SQL
+        $bind_labels = [];
+        while ( ( $line = fgetcsv($handle, 0, $delim ) ) !== FALSE ) {
+            
+            // check header for all required fields
+            if ( $count == 0 ) {
+                $header = $line;
+
+                if ( count( $required_fields ) > 0 && array_intersect( $required_fields, $header ) != $required_fields ) {
+                    return json_encode(array("msg" => 'Ensure you\'ve included all the required fields for this table including: <code>' . implode('</code>,<code>', $required_fields) . '</code>', "status" => false, "hide" => false));
+                }
+
+                $bind_label_template = ':' . implode('_num, :', $header) . '_num'; // this will get updated for each row by replacing _num with $count - used to speed things up
+            } else {
+
+                // validate file row data
+                $dat = array_combine( $header, $line );
+                $validate = validate_row( $dat, $table, False, $visible_fields, $required_fields, $fk_vals, $unique_vals );
+                if ($validate !== true ) {
+                    return $validate;
+                }
+
+                // update unique_vals with current validated file row
+                foreach( $unique_vals as $field => $vals ) {
+                    $vals[] = $dat[$field];
+                    $unique_vals[$field] = $vals;
+                }
+
+                // if valid, append to batch form of SQL add
+                $bind_vals[] = $line;
+                $bind_labels[] = str_replace( '_num', $count - 1, $bind_label_template );
+            }
+
+            $count += 1;
+        }
+    }
+
+    // generate SQL for data
+    $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels );
+
+
+    return json_encode(array("msg" => 'here.', "status" => true, "hide" => false, "log" =>$stmt ));
+}
 
 
 
@@ -969,6 +1020,51 @@ function add_table_to_db( $ajax_data ) {
 
 
 
+/**
+ * Bind prepared statement in batch form
+ *
+ * @params:
+ * (str) $table - table being affected
+ * (arr.) $header - field names in table
+ * (arr. of arr.) $bind_vals - each outer array
+ *  is an array of field values being bound
+ * (arr.) $bind_labels - array of field names formated
+ * for binding e.g. [":field1, :field2", ...]
+ *
+ * @returns:
+ * prepared PDO statement ready for execution
+ *
+*/
+function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels ) {
+
+    $sql = "INSERT INTO `$table` (`" . implode( "`,`", $header ) . "`) VALUES ";
+    $sql .= "(" . implode( '), (', $bind_labels) . ")";
+
+    $db_conn = get_db_conn();
+    $stmt = $db_conn->prepare( $sql );
+
+
+    foreach( $bind_vals as $vals => $row_count ) {
+
+        foreach( $vals as $field_val => $i ) {
+
+            $pdo_type = PDO::PARAM_STR;
+
+            if ( is_numeric( $field_val ) && is_int( $field_val ) ) { // float case is handled as str
+                $field_val = intfield_val( $field_val );
+                $pdo_type = PDO::PARAM_INT;
+            }
+        
+            $stmt->bindValue(":" . $header[$i] . $row_count, $field_val, $pdo_type);
+
+        }
+    }
+
+    return $stmt;
+}
+
+
+
 
 
 /**
@@ -978,6 +1074,7 @@ function add_table_to_db( $ajax_data ) {
  * (assoc. array) $bindings - table data being
  *  bound in parepare statment with form
  *  [ table_column => column value ]
+ * (pdo) $stmt - prepared PDO statement for binding
  *
  * @return bound PDO statement
  *
@@ -1034,7 +1131,7 @@ function bind_pdo($bindings, $stmt) {
  * @return json encoded error message, otherwise true
  *
 */
-function validate_row( $dat, $sent_fields, $table, $edit=False, $visible_fields=False, $required_fields=False, $fk_vals=False, $unique_vals=False ) {
+function validate_row( $dat, $table, $edit=False, $visible_fields=False, $required_fields=False, $fk_vals=False, $unique_vals=False ) {
 
     $db = get_db_setup();
     if ($visible_fields === False) $visible_fields = $db->get_visible_fields( $table );
@@ -1068,7 +1165,7 @@ function validate_row( $dat, $sent_fields, $table, $edit=False, $visible_fields=
 
                 // validate FK field has proper value
                 if ( in_array( $field_name, array_keys( $fk_vals ) ) && !in_array( $field_val, $fk_vals[$field_name] ) ) {
-                    return json_encode(array("msg" => "The item value <code>$value</code> you are trying to add already exists in the unique field <code>$field</code>, please choose another.", "status" => false, "hide" => false));
+                    return json_encode(array("msg" => "The item value <code>$field_val</code> must be one of the following: <code>" . implode('</code>,<code>', $fk_vals[$field_name] ) . "</code>, please choose another.", "status" => false, "hide" => false));
                 }
 
             } else if ( $field_required ) {
