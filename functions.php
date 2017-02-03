@@ -441,7 +441,7 @@ function add_item_to_db( $ajax_data ) {
         }
     } else {
         // enter data for history table
-        $_UID_fk = $db_conn->query( "SELECT $pk FROM $table ORDER BY $pk DESC LIMIT 1" )->fetch()[$pk]; // UID of last element added
+        $_UID_fk = $db_conn->query( "SELECT $pk FROM `$table` ORDER BY $pk DESC LIMIT 1" )->fetch()[$pk]; // UID of last element added
         add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $dat, $db_conn );
 
         if ( DEBUG ) {
@@ -583,9 +583,26 @@ function batch_add($db, $table, $files ) {
 
     // generate SQL for data
     $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels );
+    $status = $stmt->execute();
 
+    if ( $status === false ) { // error
+        if ( DEBUG ) {
+            return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt->errorInfo()), "status" => false, "hide" => false));
+        } else {
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+        }
+    } else {
+        // enter data for history table
+        $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, 'User', 'Batch added' );
+        $status = $stmt->execute();
 
-    return json_encode(array("msg" => 'here.', "status" => true, "hide" => false, "log" =>$stmt ));
+        if ( DEBUG ) {
+            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "log" => $stmt->errorInfo(), 'stat' => $stmt ) );
+        } else {
+            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
+        }
+    }
+
 }
 
 
@@ -1024,29 +1041,47 @@ function add_table_to_db( $ajax_data ) {
  * Bind prepared statement in batch form
  *
  * @params:
- * (str) $table - table being affected
+ * (str) $table - table being affected, in case
+ *  of history batch, this should be the root table
+ *  name (e.g. samples, not samples_history)
  * (arr.) $header - field names in table
  * (arr. of arr.) $bind_vals - each outer array
  *  is an array of field values being bound
  * (arr.) $bind_labels - array of field names formated
  * for binding e.g. [":field1, :field2", ...]
+ * The following are optional and designate a batch edit
+ * (str) $user - name of user doing batch
+ * (str) $action - type of batch action
+ *
  *
  * @returns:
  * prepared PDO statement ready for execution
  *
 */
-function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels ) {
-
-    $sql = "INSERT INTO `$table` (`" . implode( "`,`", $header ) . "`) VALUES ";
-    $sql .= "(" . implode( '), (', $bind_labels) . ")";
+function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, $user=NULL, $action=NULL ) {
 
     $db_conn = get_db_conn();
+
+    if ( isset( $user ) && isset( $action ) ) { // batch history
+        $fk = intval( $db_conn->query( "SELECT _UID FROM `$table` ORDER BY _UID DESC LIMIT 1" )->fetch()['_UID'] ); // UID of last element added
+        $sql = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ", $table . '_history', implode( "`,`", $header ));
+
+        // we need to manaully construct the bound values a bit since we have the _UID_pk
+        foreach ( $bind_labels as $i => $label ) {
+            $parts[] = "(" . ($fk + $i) . ", '$user', '$action', $label)";
+        }
+        $sql .= implode(", ", $parts);
+    } else {
+        $sql = "INSERT INTO `$table` (`" . implode( "`,`", $header ) . "`) VALUES ";
+        $sql .= "(" . implode( '), (', $bind_labels) . ")";
+    }
+
     $stmt = $db_conn->prepare( $sql );
 
 
-    foreach( $bind_vals as $vals => $row_count ) {
+    foreach( $bind_vals as $row_count => $vals ) {
 
-        foreach( $vals as $field_val => $i ) {
+        foreach( $vals as $i => $field_val ) {
 
             $pdo_type = PDO::PARAM_STR;
 
