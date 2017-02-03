@@ -137,6 +137,32 @@ function getFormData(sel) {
 
 
 
+/*
+Event handler for radio button change on batch update screen.
+Will display various information based on which radio button is
+selected which will help the user understand which columns are
+required for uploading a file.
+
+Function assumes there's a div available with id=radioHelp
+
+*/
+function radioSelect(selectedRadio) {
+   
+    var div = jQuery('#radioHelp');
+    var content = ''; 
+
+    if (selectedRadio.value == 'batchAdd') {
+        content = 'add';
+    } else if (selectedRadio.value == 'batchEdit' ) {
+        content = 'edit';
+    } else if (selectedRadio.value == 'batchDelete' ) {
+        content = 'delete';
+    }
+
+    div.html(content);
+}
+
+
 
 /* Catch AJAX response and show message if needed
 

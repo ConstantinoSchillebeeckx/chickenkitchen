@@ -1386,17 +1386,19 @@ function delete_table_from_db( $table_name ) {
 */
 function batch_form( $table ) { ?>
 
+    <div> Please choose one of the radio buttons shown below and upload a plain text file that is delimited with one of the following delimiters: comma, tab, colon, semi-colon or bar (|).  </div>
 
     <form class="form-horizontal" onsubmit="return false;" id="batchForm">
         <label class="radio-inline">
-            <input type="radio" name="batchType" id="batchAdd" value="batchAdd" checked> Add
+            <input type="radio" name="batchType" id="batchAdd" value="batchAdd" onclick="radioSelect(this);"> Add
         </label>
         <label class="radio-inline">
-            <input type="radio" name="batchType" id="batchEdit" value="batchEdit"> Edit
+            <input type="radio" name="batchType" id="batchEdit" value="batchEdit" onclick="radioSelect(this);"> Edit
         </label>
         <label class="radio-inline">
-            <input type="radio" name="batchType" id="batchDelete" value="batchDelete"> Delete
+            <input type="radio" name="batchType" id="batchDelete" value="batchDelete" onclick="radioSelect(this);"> Archive
         </label>
+        <div id="radioHelp"></div> <!-- will be filled by JS-->
 
         <input type="file" name="batchFile" id="batchFile" required>
         <input name="table" value="<?php echo $table ?>" style="display: none">
@@ -1406,7 +1408,12 @@ function batch_form( $table ) { ?>
     </form>
 
     <script>
-        var table = '<?php echo $_GET['table']; ?>'; // needed for AJAX
+        $(function() {
+            var table = '<?php echo $_GET['table']; ?>'; // needed for AJAX
+            jQuery('input[id=batchAdd]').click(); // do initial click on radio so that text is shown to user
+            var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
+            db = tmp.struct; // global - required for radioSelect function to display proper info
+        })
     </script>
 
 
