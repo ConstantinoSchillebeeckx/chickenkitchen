@@ -1408,11 +1408,11 @@ function batch_form( $table ) { ?>
     </form>
 
     <script>
-        $(function() {
-            var table = '<?php echo $_GET['table']; ?>'; // needed for AJAX
-            jQuery('input[id=batchAdd]').click(); // do initial click on radio so that text is shown to user
+        jQuery(function() {
             var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
             db = tmp.struct; // global - required for radioSelect function to display proper info
+            var table = '<?php echo $_GET['table']; ?>'; // needed for AJAX
+            jQuery('input[id=batchAdd]').click(); // do initial click on radio so that text is shown to user
         })
     </script>
 

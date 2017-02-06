@@ -151,15 +151,38 @@ function radioSelect(selectedRadio) {
     var div = jQuery('#radioHelp');
     var content = ''; 
 
+    var required = [];
+    var pk = '';
+    for ( var field in db ) {
+        if (db[field]['hidden'] == false && db[field]['required'] == true) {
+            required.push(field);
+            if (db[field]['key'] == 'UNI') pk = field;
+        }
+
+    }
+    jQuery('#confirmEdit').prop('disabled', false);
+
     if (selectedRadio.value == 'batchAdd') {
-        content = 'add';
+        content = 'To add data to this table, the following columns are required: <code>' + required.join('</code>,<code>') + '</code>';
     } else if (selectedRadio.value == 'batchEdit' ) {
-        content = 'edit';
+        content = 'In order to edit multiple rows in this table, each row must be uniquely identifiable.';
+        if (pk != '') {
+            content += ' This table does have a unique, required column (<code>' + pk + '</code>); when uploading a file, this column along with any data to be updated are the only required information needed.'
+        } else {
+            content += ' This table does not have any unique, required columns; therefore <b>it is not possible to batch update</b> the table.'
+            jQuery('#confirmEdit').prop('disabled', true);
+        }
     } else if (selectedRadio.value == 'batchDelete' ) {
-        content = 'delete';
+        content = 'In order to archive multiple rows in this table, each row must be uniquely identifiable.';
+        if (pk != '') {
+            content += ' This table does have a unique, required column (<code>' + pk + '</code>); when uploading a file, this is the only required information needed.'
+        } else {
+            content += ' This table does not have any unique, required columns; therefore <b>all columns must be provided</b> when deleting a row.'
+        }
     }
 
     div.html(content);
+
 }
 
 
