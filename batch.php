@@ -1,4 +1,5 @@
 
+<?php if (session_status() == PHP_SESSION_NONE) session_start(); ?>
 <?php require_once 'header.php'; ?>
 <?php require_once 'nav.php'; ?>
 <?php require_once "functions.php"; ?>

@@ -56,8 +56,9 @@ function get_db_setup() {
 
         // Get setup
         $setup = new Database( ACCT, get_db_conn() );
-
+        
         $_SESSION['db'] = $setup;
+
     }
 
     return $_SESSION['db'];
@@ -131,7 +132,7 @@ function build_table( $table ) {
         <thead>
         <tr class="info">
 
-        <?php foreach ( $fields as $field ) echo "<th>$field</th>"; ?>
+        <?php foreach ( $fields as $field ) echo "<th><span class='popover-$field'>$field</span></th>"; ?>
 
         <th>Action</th>
         </tr>
@@ -147,6 +148,12 @@ function build_table( $table ) {
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
             getDBdata(table, pk, columns, null, hidden, null, hasHistory); // function will populate table and hidden any columns needed
+
+            jQuery(document).ready(function() {
+                var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
+                make_popover_labels( tmp.struct );
+            });
+
         </script>
 
     <?php } else {
@@ -246,9 +253,9 @@ function get_form_table_row($table) {
 
                 <?php if ($field_class->is_required()) {
                     $hasRequired = true;
-                    echo '<label class="col-sm-2 control-label">' . $field . '<span class="required">*</span></label>';
+                    echo "<label class='col-sm-2 control-label'><span class='popover-$field' data-placement='bottom'>$field</span><span class='required'>*</span></label>";
                 } else {
-                    echo '<label class="col-sm-2 control-label">' . $field . '</label>';
+                    echo "<label class='col-sm-2 control-label'><span class='popover-$field' data-placement='bottom'>$field</span></label>";
                 } ?>
 
                 <div class="col-sm-10">

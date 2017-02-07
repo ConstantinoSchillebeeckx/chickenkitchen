@@ -186,6 +186,79 @@ function radioSelect(selectedRadio) {
 }
 
 
+/* Generate popover hover fields to detail field information
+
+Will provide all the available field information (type, default, etc)
+for a field through a JS popover. Function used after build_table()
+is called and/or in the modals (add, delete, update item).
+
+Function assumes that any field that requires a popover will have a
+span surrounding it with the id popover-XXX whewre XXX is the field name.
+
+Params:
+ obj db - database setup with keys as fields and obj as values
+
+*/
+function make_popover_labels( db ) {
+
+    fields = jQuery('span[class^="popover"]'); // fields that require a popover
+    
+    console.log(fields);
+
+    // setup popover for each field
+    for (var i = 0; i < fields.length; i++) {
+
+        var sel = '.' + fields[i].className;
+        var name = fields[i].innerText;
+        var dat = db[name];
+
+        var title = dat.comment.name;
+        var description = dat.comment.description;
+        var defau = dat['default'];
+        var required = dat.required;
+        var unique = dat.key == 'UNI';
+        var type = dat.type;
+        var is_fk = dat.is_fk;
+        var fk_ref = dat.fk_ref;
+        var length = dat.length;
+
+        var content = '';
+        if (typeof description !== 'undefined') content += description; // description
+        if (defau) content += 'Default: <code>' + defau + '</code><br>'; // default value
+        content += 'Required: <code>' + (required ? 'true' : 'false') + '</code><br>'; // required
+        content += 'Unique: <code>' + (unique ? 'true' : 'false') + '</code><br>'; // unique
+        if (length) content += 'Length: <code>' + length + '</code><br>'; // length
+       
+        // type 
+        if (type.includes('varchar')) {
+            content += 'Type: <code>string</code><br>';
+        } else if (type.includes('int')) {
+            content += 'Type: <code>integer</code><br>';
+        } else if (type.includes('float')) {
+            content += 'Type: <code>float</code><br>';
+        } else if (type.include('datetime')) {
+            if (dat.comment.column_format == 'date') {
+                content += 'Type: <code>date</code><br>';
+            } else {
+                content += 'Type: <code>timestamp</code><br>';
+            }
+        }
+            
+        if (is_fk) content += 'Foreign key: <code>' + fk_ref + '</code><br>'; // fk
+
+        jQuery(sel).popover({
+            html: true,
+            content: content,
+            trigger: "hover",
+            title: title,
+            container: 'body'
+        });
+
+    }
+
+}
+
+
 
 /* Catch AJAX response and show message if needed
 
