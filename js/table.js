@@ -107,6 +107,24 @@ function doAJAX(data, callback) {
             data: data,
             dataType: 'json',
             contentType: "application/json; charset=utf-8",
+            beforeSend: function() {
+
+                // update button text to loading and disable it
+                if ( data['action'] == 'addTable' ) {
+                    var button = jQuery("#addTableSubmit");
+                    button.html('<i class="fa fa-circle-o-notch fa-spin fa-lg" aria-hidden="true"></i> working ...');
+                    button.attr('disabled', true);
+                }
+            },
+            complete: function() {
+
+                // reset button
+                if ( data['action'] == 'addTable' ) {
+                    var button = jQuery("#addTableSubmit");
+                    button.html('Submit');
+                    button.attr('disabled', false);
+                }
+            }, 
             success: function(response) {
                 ajaxStatus = true;
                 ajaxResponse = response;
@@ -650,6 +668,8 @@ function batchFormSubmit( event ) {
     event.preventDefault(); // cancel form submission
     jQuery('#submit_handle').click(); // needed to validate form
 
+    var button = jQuery('#confirmEdit') // submit button
+
     if (jQuery('form')[0].checkValidity()) { // if valid, load
 
         // generate form for XHR send
@@ -664,11 +684,24 @@ function batchFormSubmit( event ) {
                 myXhr = $.ajaxSettings.xhr();
                 return myXhr;
             },
+            beforeSend: function() {
+
+                // update button text to loading and disable it
+                button.html('<i class="fa fa-circle-o-notch fa-spin fa-lg" aria-hidden="true"></i> working ...');
+                button.attr('disabled', true);
+            },
+            complete: function() {
+
+                // reset button
+                button.html('Submit');
+                button.attr('disabled', false);
+            }, 
             success: completeHandler = function(response) {
                 
                 var ajaxResponse = JSON.parse(response);
                 showMsg(ajaxResponse);
                 if (DEBUG) console.log(ajaxResponse);
+
             },
             error: errorHandler = function(response) {
                 var ajaxResponse = JSON.parse(response);

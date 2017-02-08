@@ -37,7 +37,7 @@ if (isset($_GET['table'])) {
       <?php if (isset($_GET['table'])) {
         echo '<div class="pull-right btn-group"><button type="button" class="btn btn-success" onclick="editTable()">Save changes</button>';
       } else {
-        echo '<button type="button" class="btn pull-right btn-success" onclick="addTable(event)">Create table</button>';
+        echo '<button type="button" class="btn pull-right btn-success" onclick="addTable(event)" id="addTableSubmit">Create table</button>';
       }?>
     </div>
   </div>

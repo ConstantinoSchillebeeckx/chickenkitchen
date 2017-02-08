@@ -648,8 +648,13 @@ function getFileDelimiter($file, $checkLines = 2, $delimiters){
             }
            $i++;
         }
-        $results = array_keys($results, max($results));
-        return $results[0];
+        
+        if ( count( $results ) > 0 ) {
+            $results = array_keys($results, max($results));
+            return $results[0];
+        } else {
+            return false;
+        }
     }
 
 
