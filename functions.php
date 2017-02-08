@@ -74,7 +74,7 @@ function get_db_setup() {
  * as after a table is created/deleted/edited.
  * Will update the $_SESSION['db'] global var
  * 
- * @para void
+ * @params void
  * 
  * @return void
  *
@@ -132,7 +132,7 @@ function build_table( $table ) {
         <thead>
         <tr class="info">
 
-        <?php foreach ( $fields as $field ) echo "<th><span class='popover-$field'>$field</span></th>"; ?>
+        <?php foreach ( $fields as $field ) echo "<th>$field <span class='popover-$field fa fa-info-circle fa-lg text-muted' aria-hidden='true'></span></th>"; ?>
 
         <th>Action</th>
         </tr>
@@ -253,9 +253,9 @@ function get_form_table_row($table) {
 
                 <?php if ($field_class->is_required()) {
                     $hasRequired = true;
-                    echo "<label class='col-sm-2 control-label'><span class='popover-$field' data-placement='bottom'>$field</span><span class='required'>*</span></label>";
+                    echo "<label class='col-sm-2 control-label'>$field<span class='required'>*</span> <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
                 } else {
-                    echo "<label class='col-sm-2 control-label'><span class='popover-$field' data-placement='bottom'>$field</span></label>";
+                    echo "<label class='col-sm-2 control-label'>$field <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
                 } ?>
 
                 <div class="col-sm-10">
@@ -953,13 +953,13 @@ function add_table_to_db( $ajax_data ) {
         // set field type
         $sql_str = ''; // sql statement for this field, appended to sql_fields
         if ($field_type == 'int') {
-            $sql_str = " `$field_name` int(32)";
+            $sql_str = "`$field_name` int(32)";
         } else if ($field_type == 'varchar') {
             // limit varchar length to 255 unless users specifies long version
             // a unique field will create an index which is limited to 767 bytes (255 * 3 if utf8) 
             $sql_str = "`$field_name` varchar(255)";
             if ( $field_long_string ) { 
-                $sql_str = "`$field_name` varchar(4096)";
+                $sql_str = ":field_name varchar(4096)";
             }
         } else {
             $sql_str = "`$field_name` $field_type";
@@ -983,7 +983,9 @@ function add_table_to_db( $ajax_data ) {
         if ( $field_unique ) $sql_str .= " UNIQUE";
   
         // add comment
-        $sql_str .= " COMMENT '" . json_encode($comment) . "'";
+        $comment['description'] = $field_description;
+        $bindings['comment'] = json_encode($comment);
+        $sql_str .= " COMMENT :comment";
 
         // add index if not long string and not unique
         if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
@@ -1019,9 +1021,9 @@ function add_table_to_db( $ajax_data ) {
         refresh_db_setup(); // update DB class
 
         if ( DEBUG ) {
-            return json_encode(array("msg" => "Table <a href='?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, "sql" => $sql_table ));
+            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, 'log'=>json_encode($comment) ));
         } else {
-            return json_encode(array("msg" => "Table <a href='?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
+            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
         }
 
     } else { // if error
@@ -1032,7 +1034,7 @@ function add_table_to_db( $ajax_data ) {
         }
 
         if ( DEBUG ) {
-            return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => implode(' - ', $bindings), 'sql' => $sql_table . $sql_table_history ));
+            return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt_table->errorInfo()), "status" => false, "hide" => false, "log" => $stmt_table->debugDumpParams(), 'sql' => $sql_table . $sql_table_history ));
         } else {
             return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
         }

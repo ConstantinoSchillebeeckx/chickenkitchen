@@ -163,7 +163,7 @@ function radioSelect(selectedRadio) {
     jQuery('#confirmEdit').prop('disabled', false);
 
     if (selectedRadio.value == 'batchAdd') {
-        content = 'To add data to this table, the following columns are required: <code>' + required.join('</code>,<code>') + '</code>';
+        content = 'To add data to this table, please upload a file with atleast the following columns (any others will be ignored): <code>' + required.join('</code>,<code>') + '</code>';
     } else if (selectedRadio.value == 'batchEdit' ) {
         content = 'In order to edit multiple rows in this table, each row must be uniquely identifiable.';
         if (pk != '') {
@@ -193,7 +193,7 @@ for a field through a JS popover. Function used after build_table()
 is called and/or in the modals (add, delete, update item).
 
 Function assumes that any field that requires a popover will have a
-span surrounding it with the id popover-XXX whewre XXX is the field name.
+span surrounding it with the id popover-XXX where XXX is the field name.
 
 Params:
  obj db - database setup with keys as fields and obj as values
@@ -203,56 +203,60 @@ function make_popover_labels( db ) {
 
     fields = jQuery('span[class^="popover"]'); // fields that require a popover
     
-    console.log(fields);
+    console.log(db);
 
     // setup popover for each field
     for (var i = 0; i < fields.length; i++) {
 
-        var sel = '.' + fields[i].className;
-        var name = fields[i].innerText;
+        var sel = '.' + fields[i].className.split(' ')[0]; // assumes popover-XXX class is first
+        var name = sel.split('-')[1];
+        console.log(sel, name)
         var dat = db[name];
 
-        var title = dat.comment.name;
-        var description = dat.comment.description;
-        var defau = dat['default'];
-        var required = dat.required;
-        var unique = dat.key == 'UNI';
-        var type = dat.type;
-        var is_fk = dat.is_fk;
-        var fk_ref = dat.fk_ref;
-        var length = dat.length;
+        if (typeof dat !== 'undefined') {
 
-        var content = '';
-        if (typeof description !== 'undefined') content += description; // description
-        if (defau) content += 'Default: <code>' + defau + '</code><br>'; // default value
-        content += 'Required: <code>' + (required ? 'true' : 'false') + '</code><br>'; // required
-        content += 'Unique: <code>' + (unique ? 'true' : 'false') + '</code><br>'; // unique
-        if (length) content += 'Length: <code>' + length + '</code><br>'; // length
-       
-        // type 
-        if (type.includes('varchar')) {
-            content += 'Type: <code>string</code><br>';
-        } else if (type.includes('int')) {
-            content += 'Type: <code>integer</code><br>';
-        } else if (type.includes('float')) {
-            content += 'Type: <code>float</code><br>';
-        } else if (type.include('datetime')) {
-            if (dat.comment.column_format == 'date') {
-                content += 'Type: <code>date</code><br>';
-            } else {
-                content += 'Type: <code>timestamp</code><br>';
+            var title = dat.comment.name;
+            var description = dat.comment.description;
+            var defau = dat['default'];
+            var required = dat.required;
+            var unique = dat.key == 'UNI';
+            var type = dat.type;
+            var is_fk = dat.is_fk;
+            var fk_ref = dat.fk_ref;
+            var length = dat.length;
+
+            var content = '';
+            if (typeof description !== 'undefined') content += 'Description: ' + description + '<hr>'; // description
+            if (defau) content += 'Default: <code>' + defau + '</code><br>'; // default value
+            content += 'Required: <code>' + (required ? 'true' : 'false') + '</code><br>'; // required
+            content += 'Unique: <code>' + (unique ? 'true' : 'false') + '</code><br>'; // unique
+            if (length) content += 'Length: <code>' + length + '</code><br>'; // length
+           
+            // type 
+            if (type.includes('varchar')) {
+                content += 'Type: <code>string</code><br>';
+            } else if (type.includes('int')) {
+                content += 'Type: <code>integer</code><br>';
+            } else if (type.includes('float')) {
+                content += 'Type: <code>float</code><br>';
+            } else if (type.include('datetime')) {
+                if (dat.comment.column_format == 'date') {
+                    content += 'Type: <code>date</code><br>';
+                } else {
+                    content += 'Type: <code>timestamp</code><br>';
+                }
             }
-        }
-            
-        if (is_fk) content += 'Foreign key: <code>' + fk_ref + '</code><br>'; // fk
+                
+            if (is_fk) content += 'Foreign key: <code>' + fk_ref + '</code><br>'; // fk
 
-        jQuery(sel).popover({
-            html: true,
-            content: content,
-            trigger: "hover",
-            title: title,
-            container: 'body'
-        });
+            jQuery(sel).popover({
+                html: true,
+                content: content,
+                trigger: "hover",
+                title: title,
+                container: 'body'
+            });
+        }
 
     }
 
