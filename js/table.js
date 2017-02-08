@@ -16,13 +16,31 @@ function toggleDate(checkBox) {
     // if user selects checkbox, uncheck
     // the required and unique and disable
     if (jQuery(checkBox).is(':checked')) {
-        jQuery("[name=unique-" + fieldNum + "]").prop('checked', false).prop('disabled', true);
-        jQuery("[name=required-" + fieldNum + "]").prop('checked', false).prop('disabled', true);
-        jQuery("input[type=text][name=default-" + fieldNum + "]").prop('disabled', true);
+        var sel = jQuery("[name=unique-" + fieldNum + "]").prop('checked', false)
+        sel.prop('disabled', true);
+        sel.parent().addClass( "text-muted" );
+
+        var sel = jQuery("[name=required-" + fieldNum + "]").prop('checked', false)
+        sel.prop('disabled', true);
+        sel.parent().addClass( "text-muted" );
+
+        jQuery("input[type=text][name=default-" + fieldNum + "]").prop('disabled', true).addClass( "text-muted" );
+        jQuery('#fieldDefault').addClass( "text-muted" );
+        jQuery('#fieldRequired').addClass( "text-muted" );
+        jQuery('#fieldUnique').addClass( "text-muted" );
     } else {
-        jQuery("[name=unique-" + fieldNum + "]").prop('disabled', false);
-        jQuery("[name=required-" + fieldNum + "]").prop('disabled', false);
-        jQuery("input[type=text][name=default-" + fieldNum + "]").prop('disabled', false);
+        var sel = jQuery("[name=unique-" + fieldNum + "]")
+        sel.prop('disabled', false)
+        sel.parent().removeClass( "text-muted" );
+
+        var sel = jQuery("[name=required-" + fieldNum + "]")
+        sel.prop('disabled', false)
+        sel.parent().removeClass( "text-muted" );
+
+        jQuery("input[type=text][name=default-" + fieldNum + "]").prop('disabled', false).removeClass( "text-muted" );
+        jQuery('#fieldDefault').removeClass( "text-muted" );
+        jQuery('#fieldRequired').removeClass( "text-muted" );
+        jQuery('#fieldUnique').removeClass( "text-muted" );
     }
 
 }
@@ -41,9 +59,15 @@ function toggleLongString(checkBox) {
     // if user selects checkbox, uncheck
     // the required and unique and disable
     if (jQuery(checkBox).is(':checked')) {
-        jQuery("[name^=unique-]").prop('checked', false).prop('disabled', true);
+        var sel = jQuery("[name^=unique-]")
+        sel.prop('checked', false).prop('disabled', true);
+        sel.parent().addClass('text-muted');
+        jQuery('#fieldUnique').addClass( "text-muted" );
     } else {
-        jQuery("[name^=unique-]").prop('disabled', false);
+        sel = jQuery("[name^=unique-]")
+        sel.prop('disabled', false);
+        sel.parent().removeClass('text-muted');
+        jQuery('#fieldUnique').removeClass( "text-muted" );
     }
 
 }
@@ -899,7 +923,7 @@ function addField() {
             '</div>',
             '<div class="panel-body">',
             '<div class="form-group">',
-            '<label class="col-sm-2 control-label" id="fieldLabel">Field name*</label>',
+            '<label class="col-sm-2 control-label" id="fieldName">Field name*</label>',
             '<div class="col-sm-3">',
             '<input type="text" class="form-control" name="name-' + fieldNum + '" required pattern="[a-zA-Z0-9\-_ ]+" title="Letters, numbers, hypens and underscores and spaces only" maxlength="64">',
             '</div>',
@@ -917,7 +941,7 @@ function addField() {
             '</div>',
             '</div>',
             '<div class="form-group">',
-            '<label class="col-sm-2 control-label" id="fieldLabel">Default value</label>',
+            '<label class="col-sm-2 control-label" id="fieldDefault">Default value</label>',
             '<div class="col-sm-3">',
             '<input type="text" class="form-control" name="default-' + fieldNum + '">',
             '</div>',
@@ -925,19 +949,19 @@ function addField() {
             '</div>',
             '</div>',
             '<div class="form-group">',
-            '<label class="col-sm-2 control-label" id="fieldLabel">Description</label>',
+            '<label class="col-sm-2 control-label" id="fieldDescription">Description</label>',
             '<div class="col-sm-3">',
             '<input type="text" class="form-control" name="description-' + fieldNum + '">',
             '</div>',
             '</div>',
             '<div class="form-group">',
-            '<label class="col-sm-2 control-label">Required</label>',
+            '<label class="col-sm-2 control-label" id="fieldRequired">Required</label>',
             '<div class="col-sm-3">',
             '<label class="checkbox-inline">',
             '<input type="checkbox" name="required-' + fieldNum + '"> check if field is required',
             '</label>',
             '</div>',
-            '<label class="col-sm-1 control-label">Unique</label>',
+            '<label class="col-sm-1 control-label" id="fieldUnique">Unique</label>',
             '<div class="col-sm-3">',
             '<label class="checkbox-inline">',
             '<input type="checkbox" name="unique-' + fieldNum + '"> check if field is unique. <b>Note:</b> if you plan on making this field a reference for a foreign key, then this field must be unique.',
@@ -1044,17 +1068,17 @@ function selectChange(id){
         html += getFKchoices(id);
     } else if (val == 'date') {
         html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
-        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
+        html +='<label class="checkbox-inline"><input type="checkbox" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
     } else if (val == 'varchar') {
         html = '<span>A string field can be contain letters, numbers and various other characters such as commas or dashes; this field is limited to 255 utf8 characters or less.</span>';
-        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="longString-' + id + '" onchange="toggleLongString(this)"> check if you plan on storing strings longer than 255 characters (limit 4096); note that if this is selected, this field <b>cannot be used as the reference for a foreign key nor can it be unique</b>.</label>';
+        html +='<label class="checkbox-inline"><input type="checkbox" name="longString-' + id + '" onchange="toggleLongString(this)"> check if you plan on storing strings longer than 255 characters (limit 4096); note that if this is selected, this field <b>cannot be used as the reference for a foreign key nor can it be unique</b>.</label>';
     } else if (val == 'int') {
         html = '<p>An integer field can only contain whole numbers such as <code>4321</code>.</p>';
     } else if (val == 'float') {
         html = '<p>A float field can only contain numbers as well as a decimal point, for example <code>89.45</code></p>';
     } else if (val == 'datetime') {
         html = '<span>A date time field is used is used for values that contain both date and time parts, it is stored in the format <em>YYYY-MM-DD HH:MM:SS</em>, for example <code>2023-01-19 03:14:07</code></span><br>';
-        html +='<label class="checkbox-inline"><input type="checkbox" clas="form-control" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date & time at editing.</label>';
+        html +='<label class="checkbox-inline"><input type="checkbox" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date & time at editing.</label>';
     }
     hidden.html(html);
 }
