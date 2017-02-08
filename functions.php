@@ -550,25 +550,25 @@ function batch_add($db, $table, $files ) {
 
     // loop through file and validate each row
     if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
-        $count = 0;
+        $row = 0;
         $bind_vals = [];  // validated row values to batch insert SQL
         $bind_labels = [];
         while ( ( $line = fgetcsv($handle, 0, $delim ) ) !== FALSE ) {
             
             // check header for all required fields
-            if ( $count == 0 ) {
+            if ( $row == 0 ) {
                 $header = $line;
 
                 if ( count( $required_fields ) > 0 && array_intersect( $required_fields, $header ) != $required_fields ) {
-                    return json_encode(array("msg" => 'Ensure you\'ve included all the required fields for this table including: <code>' . implode('</code>,<code>', $required_fields) . '</code>', "status" => false, "hide" => false));
+                    return json_encode(array("msg" => 'Error in row $row - ensure you\'ve included all the required fields for this table including: <code>' . implode('</code>,<code>', $required_fields) . '</code>', "status" => false, "hide" => false));
                 }
 
-                $bind_label_template = ':' . implode('_num, :', $header) . '_num'; // this will get updated for each row by replacing _num with $count - used to speed things up
+                $bind_label_template = ':' . implode('_num, :', $header) . '_num'; // this will get updated for each row by replacing _num with $row - used to speed things up
             } else {
 
                 // validate file row data
                 $dat = array_combine( $header, $line );
-                $validate = validate_row( $dat, $table, False, $visible_fields, $required_fields, $fk_vals, $unique_vals );
+                $validate = validate_row( $dat, $table, False, $visible_fields, $required_fields, $fk_vals, $unique_vals, $row );
                 if ($validate !== true ) {
                     return $validate;
                 }
@@ -581,10 +581,10 @@ function batch_add($db, $table, $files ) {
 
                 // if valid, append to batch form of SQL add
                 $bind_vals[] = $line;
-                $bind_labels[] = str_replace( '_num', $count - 1, $bind_label_template );
+                $bind_labels[] = str_replace( '_num', $row - 1, $bind_label_template );
             }
 
-            $count += 1;
+            $row += 1;
         }
     }
 
@@ -1174,13 +1174,13 @@ function bind_pdo($bindings, $stmt) {
  *  and the value is an array of values that FK can have
  * (assoc. arr.) $unique_vals - keys are fields that have a unique constraint
  *  and the value is an array of unique values currently in the field
- *
+ * (int) $row_num - current row being checked
  *
  *
  * @return json encoded error message, otherwise true
  *
 */
-function validate_row( $dat, $table, $edit=False, $visible_fields=False, $required_fields=False, $fk_vals=False, $unique_vals=False ) {
+function validate_row( $dat, $table, $edit=False, $visible_fields=False, $required_fields=False, $fk_vals=False, $unique_vals=False, $row_num=False ) {
 
     $db = get_db_setup();
     if ($visible_fields === False) $visible_fields = $db->get_visible_fields( $table );
@@ -1209,23 +1209,39 @@ function validate_row( $dat, $table, $edit=False, $visible_fields=False, $requir
 
                 // validate field is unique
                 if ( in_array( $field_name, array_keys( $unique_vals ) ) && in_array( $field_val, $unique_vals[$field_name] ) ) {
-                    return json_encode(array("msg" => "The item value <code>$field_val</code> you are trying to add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                    if ($row === False) {
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> you are trying to add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                    } else {
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row) you are trying to add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                    }
                 }
 
                 // validate FK field has proper value
                 if ( in_array( $field_name, array_keys( $fk_vals ) ) && !in_array( $field_val, $fk_vals[$field_name] ) ) {
-                    return json_encode(array("msg" => "The item value <code>$field_val</code> must be one of the following: <code>" . implode('</code>,<code>', $fk_vals[$field_name] ) . "</code>, please choose another.", "status" => false, "hide" => false));
+                    if ($row === False) {
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> must be one of the following: <code>" . implode('</code>,<code>', $fk_vals[$field_name] ) . "</code>, please choose another.", "status" => false, "hide" => false));
+                    } else {
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row) must be one of the following: <code>" . implode('</code>,<code>', $fk_vals[$field_name] ) . "</code>, please choose another.", "status" => false, "hide" => false));
+                    }
                 }
 
             } else if ( $field_required ) {
 
-                return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+                if ($row === False) {
+                    return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+                } else {
+                    return json_encode( array("msg" => "Error in row $row - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+                }
 
             }
 
         } else if ( $field_required && $edit ) {
 
-            return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+            if ($row === False) {
+                return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+            } else {
+                return json_encode( array("msg" => "Error in row $row - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+            }
 
         }
 
