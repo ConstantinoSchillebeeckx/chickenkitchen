@@ -198,7 +198,7 @@ function radioSelect(selectedRadio) {
     for ( var field in db ) {
         if (db[field]['hidden'] == false && db[field]['required'] == true) {
             required.push(field);
-            if (db[field]['key'] == 'UNI') pk = field;
+            if (db[field]['key'] == 'UNI' && pk == '') pk = field; // grab only first on
         }
 
     }

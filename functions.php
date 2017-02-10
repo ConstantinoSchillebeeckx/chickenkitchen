@@ -499,10 +499,100 @@ function batch_update_db( $ajax_data, $files ) {
 
         // need to handle concern of uniquely identifying row
         // in cases where table has to PK set by user
+        return batch_delete($db, $table, $files);
 
     }
 
 }
+
+
+
+
+
+
+
+/**
+ * Execute batch delete
+ * 
+ * In order to execute a batch delete the table must
+ * either have a unique, required column, or all fields
+ * must be provided. Otherwise we can't guarantee the
+ * proper row is being deleted.
+ * 
+ * If the uploaded table does have a unique, required column
+ * this ID will be used in a IN() statement for the SQL delete,
+ * otherwise, each row of the uploaded file is used to query the
+ * table for the built-in _UID pk. That, in turn, is used with a
+ * IN() statement.
+ * 
+ * @params:
+ * (db class) $db - db setup
+ * (str) $table - name of table being acted on
+ * (obj) $files - $_FILES['batchFile']
+ * 
+ * @returns:
+ * json encoded error message for use with showMsg()
+ * 
+*/
+function batch_delete($db, $table, $files ) {
+
+    // get list of columns that should be checked:
+    // not null, FK, unique
+    $pk = $db->get_visible_pk( $table )[0];
+    $db_conn = get_db_conn();
+    $pks = []; // list of pks to delete
+    $visible_fields = $db->get_visible_fields( $table );
+
+    $delim = validate_uploaded_file( $files['tmp_name'] );
+    if (count($delim) > 1) return $delim;
+
+    // loop through file and validate each row
+    if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
+        $row = 0;
+        while ( ( $line = fgetcsv($handle, 0, $delim ) ) !== FALSE ) {
+            
+            // check header for all required fields
+            if ( $row == 0 ) {
+                $header = $line;
+
+                if ( !isset( $pk ) && array_intersect( $visible_fields, $header ) != $visible_fields ) {
+                    return json_encode(array("msg" => 'You must include all table fields when batch archiving including <code>' . implode('</code>,<code>', $visible_fields) . '</code>', "status" => false, "hide" => false, 'lol'=>$delim));
+                } else if ( !in_array($pk, $header) ) {
+                    return json_encode(array("msg" => 'You must include the field <code>' . $pk . '</code> when batch archiving.', "status" => false, "hide" => false));
+                }
+
+                // setup prepared statement part for SQL statement
+                $bind_parts = [];
+                foreach (array_keys( $header ) as $column ) {
+                    $bind_parts[] = "$column = :$column";
+                }
+                $sql = "SELECT _UID FROM $table WHERE " . implode(' AND ', $bind_parts);
+            } else {
+
+                // begin collecting list of pks to delete
+                // if no PK present in uploaded table, we must query for _UID
+                if ( !isset( $pk ) ) {
+                    $stmt_table = bind_pdo( $line, $db_conn->prepare( $sql ) );
+                    // error check if row isn't found
+                }
+                $pks[] = $line[$pk];
+            }
+
+            $row += 1;
+        }
+
+        // delete rows with given pks
+    }
+}
+
+
+
+
+
+
+
+
+
 
 
 /**
@@ -527,26 +617,9 @@ function batch_add($db, $table, $files ) {
     $visible_fields = $db->get_visible_fields( $table );
 
 
-    // check if valid file type supplied
-    if ( mime_content_type( $files['tmp_name'] ) != "text/plain" ) {
-        if (DEBUG) {
-            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false, "log" => mime_content_type( $files['tmp_name'] ) ));
-        } else {
-            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false));
-        }
-    }
-
-
-
-    // figure out delimiter
-    $delimiters = array(',','\t',';','|',':');
-    $delim = getFileDelimiter($files['tmp_name'], 5, $delimiters); // figure out delimiter
-
-    if ( !in_array( $delim, $delimiters ) ) {
-        return json_encode(array("msg" => 'You must use one of the following delimiters: <code>' . implode('</code>,<code>', $delimiters) . "</code>" , "status" => false, "hide" => false));
-    }
-
-
+    $delim = validate_uploaded_file( $files['tmp_name'] );
+    if (count($delim) > 1) return $delim;
+        
 
     // loop through file and validate each row
     if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
@@ -560,7 +633,7 @@ function batch_add($db, $table, $files ) {
                 $header = $line;
 
                 if ( count( $required_fields ) > 0 && array_intersect( $required_fields, $header ) != $required_fields ) {
-                    return json_encode(array("msg" => 'Error in row $row - ensure you\'ve included all the required fields for this table including: <code>' . implode('</code>,<code>', $required_fields) . '</code>', "status" => false, "hide" => false));
+                    return json_encode(array("msg" => 'Ensure you\'ve included all the required fields for this table including: <code>' . implode('</code>,<code>', $required_fields) . '</code>', "status" => false, "hide" => false));
                 }
 
                 $bind_label_template = ':' . implode('_num, :', $header) . '_num'; // this will get updated for each row by replacing _num with $row - used to speed things up
@@ -610,6 +683,39 @@ function batch_add($db, $table, $files ) {
         }
     }
 
+}
+
+/**
+ * Validate batch uploaded file is plain text
+ * and has a delimiter.
+ *
+ * @params: (str) $file - name of file to check
+ *
+ * @return: delimiter or json_encoded error message
+ *
+*/
+function validate_uploaded_file( $file ) {
+
+    // check if valid file type supplied
+    if ( mime_content_type( $file ) != "text/plain" ) {
+        if (DEBUG) {
+            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false, "log" => mime_content_type( $files['tmp_name'] ) ));
+        } else {
+            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false));
+        }
+    }
+
+
+
+    // figure out delimiter
+    $delimiters = array(',','\t',';','|',':');
+    $delim = getFileDelimiter($file, 5, $delimiters); // figure out delimiter
+
+    if ( !in_array( $delim, $delimiters ) ) {
+        return json_encode(array("msg" => 'You must use one of the following delimiters: <code>' . implode('</code>,<code>', $delimiters) . "</code>" , "status" => false, "hide" => false));
+    }
+
+    return $delim;
 }
 
 

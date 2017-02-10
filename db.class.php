@@ -147,6 +147,19 @@ class Database {
         }
     }
 
+    // return any fields that are both unique and required
+    // this make the field a PK, however it isn't stored with
+    // that index - will only return a visible field if it exists
+    // otherwise will return an empty array
+    public function get_visible_pk($table) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            $tmp = $this->get_table($table);
+            return $tmp->get_visible_pk();
+        } else {
+            return false;
+        }
+    }
+
     // given a table (name) return its Table class
     public function get_table($table) {
         if ( in_array( $table, $this->get_all_tables() ) ) {
@@ -471,6 +484,21 @@ class Table {
             }
         }
         return false;
+    }
+    
+    // return any fields that are both unique and required
+    // this make the field a PK, however it isn't stored with
+    // that index - will only return a visible field if it exists
+    // otherwise will return an empty array
+    public function get_visible_pk() {
+        $info = $this->get_struct();
+        $pks = [];
+        foreach ($info as $k => $v) { // $k = field name, $v Field class
+            if ( $v->is_pk() && $v->is_hidden() === False ) {
+                $pks[] = $k;
+            }
+        }
+        return $pks;
     }
 
 

@@ -1,2 +1,6 @@
 <?php require_once 'functions.php'; ?>
-<?php get_db_setup()->show(); ?>
+<?php 
+$db = get_db_setup();
+
+$db->show(); 
+?>
