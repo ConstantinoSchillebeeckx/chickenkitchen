@@ -741,6 +741,8 @@ function historyModal(sel) {
     var uidVal = rowVals[0];
     var itemVal = rowVals[1];
 
+    console.log(rowNum, rowVals, uidVal, itemVal)
+
     jQuery("#historyID").html( "<code>" + itemVal + "</code>" ); // set PK message
     jQuery('#historyModal').modal('toggle'); // show modal
 

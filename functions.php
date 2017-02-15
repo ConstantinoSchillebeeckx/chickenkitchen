@@ -694,6 +694,8 @@ function batch_add($db, $table, $files ) {
         }
     }
 
+    $uid_fk = intval( get_db_conn()->query( "SELECT `auto_increment` FROM INFORMATION_SCHEMA.TABLES WHERE table_name = '$table'" )->fetch()['auto_increment'] ); // UID of last element added, used to increment _UID_fk
+
     // generate SQL for data
     $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels );
     $status = $stmt->execute();
@@ -706,7 +708,7 @@ function batch_add($db, $table, $files ) {
         }
     } else {
         // enter data for history table
-        $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, 'User', 'Batch added' );
+        $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, 'User', 'Batch added', $uid_fk );
         $status = $stmt->execute();
 
         if ( DEBUG ) {
@@ -1212,23 +1214,24 @@ function add_table_to_db( $ajax_data ) {
  * The following are optional and designate a batch edit
  * (str) $user - name of user doing batch
  * (str) $action - type of batch action
+ * (int) $uid_fk - last _UID in DB before batch add
+ *  initiated, used to properly set _UID_fk
  *
  *
  * @returns:
  * prepared PDO statement ready for execution
  *
 */
-function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, $user=NULL, $action=NULL ) {
+function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, $user=NULL, $action=NULL, $uid_fk=NULL ) {
 
     $db_conn = get_db_conn();
 
-    if ( isset( $user ) && isset( $action ) ) { // batch history
-        $fk = intval( $db_conn->query( "SELECT _UID FROM `$table` ORDER BY _UID DESC LIMIT 1" )->fetch()['_UID'] ); // UID of last element added
+    if ( isset( $user ) && isset( $action ) && isset( $uid_fk ) ) { // batch history
         $sql = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ", $table . '_history', implode( "`,`", $header ));
 
         // we need to manaully construct the bound values a bit since we have the _UID_pk
         foreach ( $bind_labels as $i => $label ) {
-            $parts[] = "(" . ($fk + $i) . ", '$user', '$action', $label)";
+            $parts[] = "(" . ($uid_fk + $i) . ", '$user', '$action', $label)";
         }
         $sql .= implode(", ", $parts);
     } else {
