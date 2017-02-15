@@ -1355,38 +1355,38 @@ function validate_row( $dat, $table, $edit=False, $visible_fields=False, $requir
 
                 // validate field is unique
                 if ( in_array( $field_name, array_keys( $unique_vals ) ) && in_array( $field_val, $unique_vals[$field_name] ) ) {
-                    if ($row === False) {
-                        return json_encode(array("msg" => "The item value <code>$field_val</code> you are trying to add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                    if ($row_num === False) {
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
                     } else {
-                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row) you are trying to add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row_num) add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
                     }
                 }
 
                 // validate FK field has proper value
                 if ( in_array( $field_name, array_keys( $fk_vals ) ) && !in_array( $field_val, $fk_vals[$field_name] ) ) {
-                    if ($row === False) {
+                    if ($row_num === False) {
                         return json_encode(array("msg" => "The item value <code>$field_val</code> must be one of the following: <code>" . implode('</code>,<code>', $fk_vals[$field_name] ) . "</code>, please choose another.", "status" => false, "hide" => false));
                     } else {
-                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row) must be one of the following: <code>" . implode('</code>,<code>', $fk_vals[$field_name] ) . "</code>, please choose another.", "status" => false, "hide" => false));
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row_num) must be one of the following: <code>" . implode('</code>,<code>', $fk_vals[$field_name] ) . "</code>, please choose another.", "status" => false, "hide" => false));
                     }
                 }
 
             } else if ( $field_required ) {
 
-                if ($row === False) {
+                if ($row_num === False) {
                     return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
                 } else {
-                    return json_encode( array("msg" => "Error in row $row - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+                    return json_encode( array("msg" => "Error in row $row_num - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
                 }
 
             }
 
         } else if ( $field_required && $edit ) {
 
-            if ($row === False) {
+            if ($row_num === False) {
                 return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
             } else {
-                return json_encode( array("msg" => "Error in row $row - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+                return json_encode( array("msg" => "Error in row $row_num - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
             }
 
         }
