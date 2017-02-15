@@ -519,11 +519,10 @@ function batch_update_db( $ajax_data, $files ) {
  * must be provided. Otherwise we can't guarantee the
  * proper row is being deleted.
  * 
- * If the uploaded table does have a unique, required column
- * this ID will be used in a IN() statement for the SQL delete,
- * otherwise, each row of the uploaded file is used to query the
- * table for the built-in _UID pk. That, in turn, is used with a
- * IN() statement.
+ * For each desired deleted row, the _UID is queried,
+ * this set set of PKs is then used with an IN() sql
+ * statement to delete the rows as well as update the
+ * history.
  * 
  * @params:
  * (db class) $db - db setup
@@ -536,12 +535,18 @@ function batch_update_db( $ajax_data, $files ) {
 */
 function batch_delete($db, $table, $files ) {
 
-    // get list of columns that should be checked:
-    // not null, FK, unique
-    $pk = $db->get_visible_pk( $table )[0];
     $db_conn = get_db_conn();
     $pks = []; // list of pks to delete
     $visible_fields = $db->get_visible_fields( $table );
+
+    $pk = $db->get_visible_pk( $table );
+    if (is_array($pk) && count($pk) > 0) {
+        $pk = $pk[0]; // use first PK if multiple available
+        $all_cols_required = False;
+    } else {
+        $pk = '_UID';
+        $all_cols_required = True;
+    }
 
     $delim = validate_uploaded_file( $files['tmp_name'] );
     if (count($delim) > 1) return $delim;
@@ -555,33 +560,61 @@ function batch_delete($db, $table, $files ) {
             if ( $row == 0 ) {
                 $header = $line;
 
-                if ( !isset( $pk ) && array_intersect( $visible_fields, $header ) != $visible_fields ) {
-                    return json_encode(array("msg" => 'You must include all table fields when batch archiving including <code>' . implode('</code>,<code>', $visible_fields) . '</code>', "status" => false, "hide" => false, 'lol'=>$delim));
-                } else if ( !in_array($pk, $header) ) {
+                if ( $all_cols_required && array_intersect( $visible_fields, $header ) != $visible_fields ) {
+                    return json_encode(array("msg" => 'You must include all table fields when batch archiving including <code>' . implode('</code>,<code>', $visible_fields) . '</code> - the following fields were provided in the uploaded file: <code>' . implode('</code>,<code>', $header) . '</code>', "status" => false, "hide" => false, 'log'=>array($visible_fields, $header, array_intersect($visible_fields, $header))));
+                } else if ( !$all_cols_required && !in_array($pk, $header) ) {
                     return json_encode(array("msg" => 'You must include the field <code>' . $pk . '</code> when batch archiving.', "status" => false, "hide" => false));
                 }
 
                 // setup prepared statement part for SQL statement
-                $bind_parts = [];
-                foreach (array_keys( $header ) as $column ) {
-                    $bind_parts[] = "$column = :$column";
+                if ( $all_cols_required ) {
+                    $bind_parts = [];
+                    foreach ($header as $column ) {
+                        $bind_parts[] = "`$column` = :$column";
+                    }
+                    $sql = "SELECT `$pk` FROM `$table` WHERE " . implode(' AND ', $bind_parts);
+                } else {
+                    $sql = "SELECT `$pk` FROM `$table` WHERE `$pk` = :$pk";
                 }
-                $sql = "SELECT _UID FROM $table WHERE " . implode(' AND ', $bind_parts);
             } else {
 
                 // begin collecting list of pks to delete
-                // if no PK present in uploaded table, we must query for _UID
-                if ( !isset( $pk ) ) {
-                    $stmt_table = bind_pdo( $line, $db_conn->prepare( $sql ) );
-                    // error check if row isn't found
+                if ( $all_cols_required ) {
+                    $stmt = bind_pdo( array_combine( $header, $line), $db_conn->prepare( $sql ) );
+                } else {
+                    $stmt = bind_pdo( array( $pk => $line[array_search($pk, $header)]), $db_conn->prepare( $sql ) );
                 }
-                $pks[] = $line[$pk];
+
+                $stmt->execute();
+                $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                // error check if row isn't found
+                if (isset($rows) && count($rows) > 0) $pks = array_merge($pks, $rows);
             }
 
             $row += 1;
         }
 
         // delete rows with given pks
+        $sql = "DELETE FROM `$table` WHERE $pk IN (" . implode(',', array_fill(0, count($pks), '?')) . ")";
+        $stmt = $db_conn->prepare($sql);
+        $status = $stmt->execute($pks);
+        $status2 = add_item_to_history_table( $table . "_history", USER, $pks, "Batch deleted", [], $db_conn );
+
+        if ( $status === false ) { // error
+            if ( DEBUG ) {
+                return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt->errorInfo()), "status" => false, "hide" => false, 'log'=>$sql));
+            } else {
+                return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+            }
+        } else {
+
+            if ( DEBUG ) {
+                return json_encode(array("msg" => $stmt->rowCount() . " items properly deleted from table", "status" => true, "hide" => true, "log" => $stmt->errorInfo(), 'stat' => $stmt ) );
+            } else {
+                return json_encode(array("msg" => $stmt->rowCount() . " items properly deleted from table", "status" => true, "hide" => true ));
+            }
+        }
+
     }
 }
 
@@ -886,8 +919,8 @@ function table_has_value($table_name, $field_name, $id) {
  * @param 
  * (str) $table - table name to add to
  * (str) $user - user name to assoc change with
- * (int) $fk - FK UID of element associated
- * with change
+ * (int or array) $fk - FK UID of element associated
+ * with change (will be an array in batch case)
  * (str) $action - note about what was
  *  being done e.g. "Item deleted manually"
  * (assoc. array) $field_data - data being entered into history
@@ -903,15 +936,22 @@ function table_has_value($table_name, $field_name, $id) {
 */
 function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $db_conn ) {
 
-    $table_columns = array_keys( $field_data );
-
     if ( !empty( $field_data ) ) {
+        $table_columns = array_keys( $field_data );
         $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ('$fk', '$user', '$action', :%s)", $table, implode("`,`", $table_columns), implode(",:", $table_columns ) );
         $stmt_table_history = bind_pdo( $field_data, $db_conn->prepare( $sql_history ) );
         $status = $stmt_table_history->execute();
     } else { // if no field data is sent, just update the action and user
-        $sql_history = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`) VALUES ('$fk', '$user', '$action')", $table );
-        $status = $db_conn->exec( $sql_history );
+        $sql_history = "INSERT INTO `$table` (`_UID_fk`, `User`, `Action`) VALUES (?, '$user', '$action')";
+        $stmt = $db_conn->prepare($sql_history);
+
+        if (is_array($fk)) { // if batch
+            foreach($fk as $val) {
+                $status = $stmt->execute(array($val));
+            }
+        } else {
+            $status = $stmt->execute(array($fk));
+        }
     }
 
     return $status;

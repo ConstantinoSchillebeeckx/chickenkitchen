@@ -252,7 +252,6 @@ function make_popover_labels( db ) {
 
         var sel = '.' + fields[i].className.split(' ')[0]; // assumes popover-XXX class is first
         var name = sel.split('-')[1];
-        console.log(sel, name)
         var dat = db[name];
 
         if (typeof dat !== 'undefined') {
@@ -900,7 +899,9 @@ Parameters:
 - tableName : str
               table name being saved to CSV
 */
-function downloadCSV(tableName) {
+function downloadCSV(event, tableName) {
+
+    event.preventDefault();
 
     // get column headers and specify which to hide
     var tableHead = jQuery('#datatable').DataTable().table().header();
@@ -915,7 +916,6 @@ function downloadCSV(tableName) {
     } )
 
 
-    event.preventDefault();
     jQuery('#datatable').TableCSVExport({
         delivery: 'download',
         filename: tableName + '.csv',

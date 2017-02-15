@@ -151,9 +151,11 @@ jQuery.fn.TableCSVExport = function (options) {
         output = jQuery(output).text().trim();
         
         if (output == "") return '';
+
         return '"' + output + '"';
     }
     function popup(data) {
+        console.log(data)
         if (options.delivery == 'download') {
             var blob = new Blob(['\ufeff'+data], { type: 'text/csv;charset=utf-8;' });
             if (navigator.msSaveBlob) { // IE 10+

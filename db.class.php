@@ -494,7 +494,7 @@ class Table {
         $info = $this->get_struct();
         $pks = [];
         foreach ($info as $k => $v) { // $k = field name, $v Field class
-            if ( $v->is_pk() && $v->is_hidden() === False ) {
+            if ( $v->is_required() && $v->is_unique() && $v->is_hidden() === False ) {
                 $pks[] = $k;
             }
         }

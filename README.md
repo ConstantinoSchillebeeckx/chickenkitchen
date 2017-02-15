@@ -22,7 +22,7 @@ A simplified CRUD front-end with built in visualization features.
 - [ ] edit table (fields, name)
 - [x] batch add
 - [ ] batch edit
-- [ ] batch delete
+- [x] batch delete
 
 
 ## Database setup
