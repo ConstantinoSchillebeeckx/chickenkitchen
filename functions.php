@@ -324,6 +324,71 @@ function get_fks_as_select($field_class) {
 }
 
 
+
+/**
+ * Function for reverting the data on an item using
+ * the history table.
+ *
+ *
+ *
+ * @params (assoc arr) $ajax_data with keys
+ * _UID - UID in history table with data to be reverted to
+ * table - name of the table being edited, add _history
+ *  for the history counterpart
+ *
+ *
+ * @return - error message for use with showMsg()
+ *
+*/
+function revert_item( $ajax_data) {
+
+    $db = get_db_setup();
+    $table = $ajax_data['table'];
+    $uid = $ajax_data['_UID'];
+    $db_name = DB_NAME;
+
+    if (isset($table)) {
+        
+        $table_history = $table . '_history';
+        $cols = []; // [SET a.col = b.col, ...]
+        $fields = $db->get_visible_fields( $table );
+
+        # generate SQL statement for reverting
+        foreach ( $fields as $col ) {
+            $cols[] = "a.`$col` = b.`$col`";
+        }
+
+        $sql = "UPDATE $db_name.`$table` a INNER JOIN $db_name.`$table_history` b on a._UID = b._UID_fk SET " . implode(', ', $cols) . " WHERE b._UID = $uid;";
+    }
+
+    $db_conn = get_db_conn();
+    $stmt = $db_conn->exec($sql);
+
+    if ($stmt === 1) {
+
+        // add revert to history table
+        $sql = "SELECT _UID_fk,`" . implode('`,`', $fields) . "` FROM $table_history WHERE _UID = $uid";
+        $results = $db_conn->query($sql)->fetch(PDO::FETCH_ASSOC);
+        $pk_id = $results['_UID_fk'];
+        unset($results['_UID_fk']);
+        $status = add_item_to_history_table( $table_history, USER, $pk_id, "Manually reverted", $results, $db_conn );
+        
+
+        return json_encode(array("msg" => 'Success', "status" => true, "hide" => false, "log" => $stmt, "sql"=>$results, "log"=>$sql, "stat"=>$status));
+    } else {
+        if ( DEBUG ) {
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false, "log" => $stmt, 'sql' => $sql));
+        } else {
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+        }
+    }
+    
+
+}
+
+
+
+
 /**
  * Function handles the case when a user edits the data
  * of an item. If no change was made to the data, the 
@@ -1386,12 +1451,13 @@ function validate_row( $dat, $table, $edit=False, $visible_fields=False, $requir
 
         } else if ( $field_required && $edit ) {
 
+/*
             if ($row_num === False) {
-                return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+                return json_encode( array("msg" => "Pease ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
             } else {
                 return json_encode( array("msg" => "Error in row $row_num - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
             }
-
+*/
         }
 
     }

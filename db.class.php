@@ -319,9 +319,9 @@ class Database {
     // that table structure
     public function asJSON( $table = False) {
         if ( $table !== False ) {
-            return json_encode( get_object_vars( $this->get_table( $table ) ) ) . ';';
+            return json_encode( get_object_vars( $this->get_table( $table ) ) );
         } else {
-            return json_encode( get_object_vars( $this ) ) . ';'; // ';' so that JS doesn't complain
+            return json_encode( get_object_vars( $this ) ); // ';' so that JS doesn't complain
         }
     }
 

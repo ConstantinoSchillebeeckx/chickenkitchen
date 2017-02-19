@@ -30,6 +30,9 @@
         } else if ( $action == 'batchUpdate' ) { // handles add, edit, delete
             echo batch_update_db( $_POST, $_FILES['batchFile'] );
             $error = false;
+        } else if ( $action == 'revertItem' ) { // revert changes from history modal
+            echo revert_item( $_GET );
+            $error = false;
         }
     
     }

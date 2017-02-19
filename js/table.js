@@ -244,8 +244,6 @@ Params:
 function make_popover_labels( db ) {
 
     fields = jQuery('span[class^="popover"]'); // fields that require a popover
-    
-    console.log(db);
 
     // setup popover for each field
     for (var i = 0; i < fields.length; i++) {
@@ -396,7 +394,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         buttonHTML += '</div>';
     } else if (tableID == '#historyTable') {
         var buttonHTML = '<div class="text-center">';
-        buttonHTML += '<button onclick="revertHistory(this)" type="button" class="btn btn-info btn-xs" title="History"><i class="fa fa-undo" aria-hidden="true"></i></button>'
+        buttonHTML += '<button onclick="revertHistory(event, this)" type="button" class="btn btn-info btn-xs" title="History"><i class="fa fa-undo" aria-hidden="true"></i></button>'
         buttonHTML += '</div>';
     }
 
@@ -600,12 +598,56 @@ function editModal(sel) {
         jQuery('input[id="' + col +'"]').val(cell);
     }
 
-
     jQuery("#editID").html( "<code>" + rowDat[cols[1]] + "</code>" ); // set PK message
     jQuery('#editModal').modal('toggle'); // show modal
 
     jQuery("#confirmEdit").attr("onclick", "editItem(event, '" + rowDat['_UID'] + "')");
 }
+
+
+
+
+
+
+
+/* Function called when use confirms to edit an item
+Function will make an AJAX call to the server to delete
+the selected item.
+Parameters:
+- pk_id : cell value of the PK user wants to delete
+*/
+function revertHistory(event, sel) {
+
+    event.preventDefault(); // cancel form submission
+
+    // lookup data for the row that was selected by button click
+    var rowNum = jQuery(sel).closest('tr').index();
+    var rowDat = parseTableRow(rowNum, '#historyTable');
+    var uid = rowDat['_UID']; // this is the UID (row) we want to revert to
+
+    var data = {
+            "action": "revertItem", 
+            "table": table, // var set by build_table() in functions.php
+            "_UID": uid,
+    }
+
+    
+    if (DEBUG) console.log(data);
+
+    // send data to server
+    doAJAX(data, function() {
+        jQuery('#historyModal').modal('toggle'); // hide modal
+        if (ajaxStatus) {
+            jQuery('#datatable').DataTable().draw('page'); // refresh table
+        }
+        showMsg(ajaxResponse);
+        if (DEBUG) console.log(ajaxResponse);
+    });
+
+}
+
+
+
 
 
 
@@ -741,8 +783,6 @@ function historyModal(sel) {
     var uidVal = rowVals[0];
     var itemVal = rowVals[1];
 
-    console.log(rowNum, rowVals, uidVal, itemVal)
-
     jQuery("#historyID").html( "<code>" + itemVal + "</code>" ); // set PK message
     jQuery('#historyModal').modal('toggle'); // show modal
 
@@ -767,19 +807,23 @@ Paramters:
 - rowIX : int
           represents index (0-based) for row requested,
           otherwise returns all rows
+- table : str
+          name of table to pull data out of
 Returns:
 ========
 - obj with column names as keys and row values as value
 */
-function parseTableRow(rowIX) {
+function parseTableRow(rowIX, table) {
 
-    var table = jQuery('#datatable').DataTable();
+    if (typeof table === 'undefined') table = '#datatable';
+
+    var table = jQuery(table).DataTable();
     var colData = table.columns().nodes();
     //need to use this so that we can grab UID (hidden field)
 
     var dat = {};
     table.columns().every(function(i) { 
-        var col = this.header().textContent;
+        var col = jQuery.trim(this.header().textContent);
         var cellVal = colData[i][rowIX].textContent;
         if (cellVal) {
             dat[col] = cellVal;
