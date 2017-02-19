@@ -450,7 +450,6 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
 
     if (DEBUG) console.log(data);
 
-
     historyTable = jQuery(tableID).DataTable( {
         "retrieve": true,
         "processing": true,
@@ -458,6 +457,12 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "ajax": {
             "url": 'ssp.class.php',
             "data": data,
+            "complete": function(d) {
+                if (tableID == '#historyTable') {
+                    // disable last revert button, since it doesn't make sense to revert to itself
+                    jQuery("#historyTable tbody").find("tr:last").find("td:last").find("button").prop('disabled', true)
+                }
+            },
             },
         "columnDefs": colDefs,
         "paging": tableID == '#datatable',
@@ -465,11 +470,13 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "info": tableID == '#datatable',
     } );
 
+
     // destroy global so that we only set this for history table
     // see workaround above
     if (tableID == '#datatable') {
         historyTable = null;
     }
+
 
 };
 
@@ -592,7 +599,6 @@ function editModal(sel) {
 
     // get values from row and fill modal
     originalRowVals = jQuery.extend({}, rowDat); // create a copy, set to global for comparison to edited values
-    delete originalRowVals['_UID'];
     for (var col in rowDat) {
         var cell = rowDat[col];
         jQuery('input[id="' + col +'"]').val(cell);
@@ -624,10 +630,15 @@ function revertHistory(event, sel) {
     var rowNum = jQuery(sel).closest('tr').index();
     var rowDat = parseTableRow(rowNum, '#historyTable');
     var uid = rowDat['_UID']; // this is the UID (row) we want to revert to
+    delete rowDat['Action'];
+    delete rowDat['Timestamp'];
+    delete rowDat['User'];
 
     var data = {
             "action": "revertItem", 
             "table": table, // var set by build_table() in functions.php
+            "original_row": originalRowVals, // set in historyModal()
+            "dat": rowDat, // form values
             "_UID": uid,
     }
 
@@ -780,15 +791,23 @@ function historyModal(sel) {
     // find first col value (PK) of row from button press
     var rowNum = jQuery(sel).closest('tr').index();
     var rowVals = jQuery('#datatable').DataTable().row(rowNum).data();
+    var rowDat = parseTableRow(rowNum);
     var uidVal = rowVals[0];
     var itemVal = rowVals[1];
+
+    // get values from row, used for AJAX
+    originalRowVals = jQuery.extend({}, rowDat); // create a copy, set to global for comparison to edited values
+    delete originalRowVals['_UID'];
 
     jQuery("#historyID").html( "<code>" + itemVal + "</code>" ); // set PK message
     jQuery('#historyModal').modal('toggle'); // show modal
 
+
     // fill table with data
     // vars are defined in modal.php
     getDBdata(tableHist, pkHist, columnHist, {'_UID_fk': uidVal}, hiddenHist, '#historyTable', false);
+
+
 }
 
 
@@ -823,10 +842,12 @@ function parseTableRow(rowIX, table) {
 
     var dat = {};
     table.columns().every(function(i) { 
-        var col = jQuery.trim(this.header().textContent);
-        var cellVal = colData[i][rowIX].textContent;
-        if (cellVal) {
-            dat[col] = cellVal;
+        if (table.column(i).visible()) {
+            var col = jQuery.trim(this.header().textContent);
+            var cellVal = colData[i][rowIX].textContent;
+            if (cellVal) {
+                dat[col] = cellVal;
+            }
         }
     })
 

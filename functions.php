@@ -335,6 +335,9 @@ function get_fks_as_select($field_class) {
  * _UID - UID in history table with data to be reverted to
  * table - name of the table being edited, add _history
  *  for the history counterpart
+ * dat - assoc arr of reverted values
+ * original_row - assoc arr of previous values
+ *
  *
  *
  * @return - error message for use with showMsg()
@@ -346,6 +349,14 @@ function revert_item( $ajax_data) {
     $table = $ajax_data['table'];
     $uid = $ajax_data['_UID'];
     $db_name = DB_NAME;
+    $sent_dat = $ajax_data['dat'];
+    $original_dat = $ajax_data['original_row'];
+
+
+    // check if data is different than original
+    if ( $sent_dat === $original_dat ) {
+        return json_encode(array("msg" => 'The revert state is not any different than the current one, please choose a different one.', "status" => false, "hide" => false));
+    }
 
     if (isset($table)) {
         
