@@ -18,7 +18,7 @@ A simplified CRUD front-end with built in visualization features.
 - [x] delete item in table
 - [ ] ~~hyper links for quick cell filtering~~
 - [x] advanced searching (http://querybuilder.js.org/)
-- [ ] revert history
+- [x] revert history
 - [ ] edit table (fields, name)
 - [x] batch add
 - [ ] batch edit

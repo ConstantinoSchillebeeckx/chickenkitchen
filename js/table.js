@@ -628,11 +628,13 @@ function revertHistory(event, sel) {
 
     // lookup data for the row that was selected by button click
     var rowNum = jQuery(sel).closest('tr').index();
-    var rowDat = parseTableRow(rowNum, '#historyTable');
+    var rowDat = parseTableRow(rowNum, '#historyTable', true);
     var uid = rowDat['_UID']; // this is the UID (row) we want to revert to
     delete rowDat['Action'];
     delete rowDat['Timestamp'];
     delete rowDat['User'];
+
+    console.log(rowDat)
 
     var data = {
             "action": "revertItem", 
@@ -828,13 +830,17 @@ Paramters:
           otherwise returns all rows
 - table : str
           name of table to pull data out of
+- allCols : bool
+            if true, will return all cols; otherwise just
+            the visible columns
 Returns:
 ========
 - obj with column names as keys and row values as value
 */
-function parseTableRow(rowIX, table) {
+function parseTableRow(rowIX, table, allCols) {
 
     if (typeof table === 'undefined') table = '#datatable';
+    if (typeof allCols === 'undefined') allCols = false;
 
     var table = jQuery(table).DataTable();
     var colData = table.columns().nodes();
@@ -842,7 +848,7 @@ function parseTableRow(rowIX, table) {
 
     var dat = {};
     table.columns().every(function(i) { 
-        if (table.column(i).visible()) {
+        if (table.column(i).visible() || allCols) {
             var col = jQuery.trim(this.header().textContent);
             var cellVal = colData[i][rowIX].textContent;
             if (cellVal) {
