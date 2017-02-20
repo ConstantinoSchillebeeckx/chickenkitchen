@@ -147,6 +147,25 @@ class Database {
         }
     }
 
+    // when creating a new table, user may choose
+    // column to be a FK, this will return all those
+    // fields which can be used as an FK: fields
+    // set to unique constraint
+    // will return array in form [table.col, ...]
+    public function get_possible_fk() {
+        $ret = [];
+        foreach ($this->get_data_tables() as $table) {
+            $tmp = $this->get_unique( $table );
+            if (is_array($tmp) && count($tmp)) {
+                foreach( $tmp as $pk ) {
+                    $ret[] = "$table.$pk";
+                }
+            }
+        }
+        return $ret;
+    }
+
+
     // return any fields that are both unique and required
     // this make the field a PK, however it isn't stored with
     // that index - will only return a visible field if it exists
@@ -170,7 +189,7 @@ class Database {
     }
 
     // given a table (name) return the columns that are unique,
-    // if any, as an array
+    // if any, as an array; will only return visible fields
     public function get_unique($table) {
         if ( in_array( $table, $this->get_all_tables() ) ) {
             $tmp = $this->get_struct()[$table];
@@ -187,17 +206,17 @@ class Database {
     // given a table name, will return an assoc array
     // where keys are fields which must be unique and
     // the value are the values that field currently has
+    // will only return values for visible fields
     public function get_unique_vals( $table ) {
         if ( in_array( $table, $this->get_all_tables() ) ) {
             $unique_cols = $this->get_unique( $table );
-            $visible_fields = $this->get_visible_fields( $table );
 
             $unique_vals = [];
             if ( $unique_cols !== False ) {
     
                 foreach( $unique_cols as $field ) {
                     $vals = $this->get_field( $table, $field)->get_unique_vals();
-                    if ( $vals !== False && in_array( $field, $visible_fields ) ) $unique_vals[$field] = $vals;
+                    if ( $vals !== False ) $unique_vals[$field] = $vals;
                 }                
 
             }
@@ -505,11 +524,12 @@ class Table {
     // return an array of fields that have
     // the unique property in the table
     // otherwise false
+    // NOTE: only returns visible fields
     public function get_unique() {
         $info = $this->get_struct();
         $tmp = array();
         foreach ($info as $k => $v) { // $k = field name, $v Field class
-            if ( $v->is_unique() ) {
+            if ( $v->is_unique() && $v->is_hidden() == false ) {
                 array_push($tmp, $k);
             }
         }

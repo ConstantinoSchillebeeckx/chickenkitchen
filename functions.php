@@ -150,8 +150,9 @@ function build_table( $table ) {
             getDBdata(table, pk, columns, null, hidden, null, hasHistory); // function will populate table and hidden any columns needed
 
             jQuery(document).ready(function() {
+                var fk_vals = <?php echo json_encode(get_db_setup()->get_fk_vals( $_GET['table'] )); ?>;
                 var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
-                make_popover_labels( tmp.struct );
+                make_popover_labels( tmp.struct, fk_vals );
             });
 
         </script>
@@ -383,9 +384,8 @@ function revert_item( $ajax_data) {
         $pk_id = $results['_UID_fk'];
         unset($results['_UID_fk']);
         $status = add_item_to_history_table( $table_history, USER, $pk_id, "Manually reverted", $results, $db_conn );
-        
 
-        return json_encode(array("msg" => 'Success', "status" => true, "hide" => false, "log" => $stmt, "sql"=>$results, "log"=>$sql, "stat"=>$status));
+        return json_encode(array("msg" => 'Item properly reverted', "status" => true, "hide" => true));
     } else {
         if ( DEBUG ) {
             return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false, "log" => $stmt, 'sql' => $sql));

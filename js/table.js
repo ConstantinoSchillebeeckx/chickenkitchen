@@ -239,9 +239,10 @@ span surrounding it with the id popover-XXX where XXX is the field name.
 
 Params:
  obj db - database setup with keys as fields and obj as values
+ obj fk_vals - key = col, value = fk values it can have
 
 */
-function make_popover_labels( db ) {
+function make_popover_labels( db, fk_vals ) {
 
     fields = jQuery('span[class^="popover"]'); // fields that require a popover
 
@@ -285,8 +286,11 @@ function make_popover_labels( db ) {
                     content += 'Type: <code>timestamp</code><br>';
                 }
             }
-                
-            if (is_fk) content += 'Foreign key: <code>' + fk_ref + '</code><br>'; // fk
+               
+            if (is_fk) {
+                content += 'Foreign key: <code>' + fk_ref + '</code><br>'; // fk
+                content += 'Allowable values: <code>' + Object.values(fk_vals) + '</code><br>';
+            }
 
             jQuery(sel).popover({
                 html: true,
@@ -1197,8 +1201,8 @@ a foreign key; this will generate a drop down select
 filled with table name and field name from which to
 choose as a reference for the FK. 
 
-Function assumes a JS var db exists which contains
-the structure of the DB (this is done in add_table.php)
+Function assumes a JS var 'fks' exists which contains
+the possible fks of the DB (this is done in add_table.php)
 
 Note that it will only list unique, non-hidden
 fields in non-history tables.
@@ -1221,27 +1225,18 @@ function getFKchoices(id=null) {
         name += '-' + id;
     }
 
-    var html = '<select class="form-control" name="' + name + '" required>';
     var count = 0;
-    for (var table in db) {
-        var tableStruct = db[table];
-        var fieldStruct = tableStruct['struct'];
-        var isHist = tableStruct['is_history'];
-      
-        // only generate FK for regular tables (not history tables)
-        if (isHist == false) { 
-            for (var j in tableStruct['fields']) {
-                var field = tableStruct['fields'][j];
-                if ( fieldStruct[field]['hidden'] == false && (fieldStruct[field]['key'] == 'PRI' || fieldStruct[field]['key'] == 'UNI')) {
-                    var val = table + '.' + field;
-                    var label = 'Table: ' + table + ' | Field: ' + field;
-                
-                    html += '<option value="' + val + '">' + label + '</option>';
-                    count++;
-                }
-            }
-        }
+    var html = '<select class="form-control" name="' + name + '" required>';
+    for (var i in fks) {
+        var parts = fks[i].split('.');
+        var table = parts[0];
+        var field = parts[1];
 
+        var val = table + '.' + field;
+        var label = 'Table: ' + table + ' | Field: ' + field;
+    
+        html += '<option value="' + val + '">' + label + '</option>';
+        count++;
     }
     html += '</select>';
 
