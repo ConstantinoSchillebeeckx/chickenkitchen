@@ -607,6 +607,7 @@ class Field {
     public $table;
     public $comment;
     public $length;
+    public $unique;
 
     public function __construct($table, $name, $fks, $info, $db) {
         $this->name = $name;
@@ -617,6 +618,7 @@ class Field {
         $this->comment = json_decode($info[$name]["Comment"], true);
         $this->table = $table;
         $this->length = $this->get_length();
+        $this->unique = $this->is_unique();
 
         // check if field is required
         if ( $info[$name]["Null"] == "YES" || in_array($this->type, array('timestamp', 'date') ) ) {

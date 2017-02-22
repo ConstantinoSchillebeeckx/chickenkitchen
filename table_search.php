@@ -30,10 +30,8 @@ and options for the query builder.
 <script>
 
     // get the DB structure
-    if (typeof db == 'undefined') {
-        var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
-        db = tmp.struct; // global
-    }
+    var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
+    db = tmp.struct; // global
 
     var filters = setup_query_builder_filter( db );
 

@@ -279,7 +279,7 @@ function make_popover_labels( db, fk_vals ) {
                 content += 'Type: <code>integer</code><br>';
             } else if (type.includes('float')) {
                 content += 'Type: <code>float</code><br>';
-            } else if (type.include('datetime')) {
+            } else if (type.includes('datetime')) {
                 if (dat.comment.column_format == 'date') {
                     content += 'Type: <code>date</code><br>';
                 } else {
@@ -1251,4 +1251,92 @@ function getFKchoices(id=null) {
     return html;
 
 }
+
+
+
+
+
+/*
+
+When editing a table, we use the same form as the "Add table" form;
+therefore the form needs to be filled in with the current table setup
+being edited.
+
+Parameters:
+-----------
+- db : obj
+       Table structure in form: key=column, value=table attributes.
+       Table attributes are stored as an object with all keys defined
+       by the db.class.php 
+Returns:
+--------
+- will fill out the table form with filled out info for each field
+
+*/
+function fillEditTableForm(db) {
+   
+    var count = 0;
+    for (var field in db) {
+        
+        var dat = db[field];
+
+        if (!dat.hidden) { 
+
+            if (count) addField(); // skip adding first field box since it was already done when page loaded
+
+            // set name
+            var name = dat.comment.name;
+            jQuery("input[name='name-" + (count + 1) + "']").val(name);
+
+            // set default
+            var dft = dat['default'];
+            if (typeof dft !== 'undefined' && dft != '') jQuery("input[name='default-" + (count + 1) + "']").val(dft);
+
+            // set description
+            var descrip = dat.comment.description
+            if (typeof descrip !== 'undefined' && descrip != '') jQuery("input[name='description-" + (count + 1) + "']").val(descrip);
+
+            // set required
+            var required = dat.required;
+            jQuery("input[name='required-" + (count + 1) + "']").prop('checked',required);
+
+            // set unique
+            var unique = dat.unique;
+            jQuery("input[name='unique-" + (count + 1) + "']").prop('checked',unique);
+
+
+            // set type
+            var type = dat.type;
+            console.log(type)
+            if (type === 'varchar(255)') {
+                jQuery("select[name='type-" + (count + 1) + "']").val('varchar');
+            } else if (type === 'int(32)') {
+                jQuery("select[name='type-" + (count + 1) + "']").val('int');
+            } else if (type === 'float') {
+                jQuery("select[name='type-" + (count + 1) + "']").val('float');
+            } else if (type === 'datetime') {
+                if (dat.comment.column_format === 'date') {
+                    jQuery("select[name='type-" + (count + 1) + "']").val('date');
+                } else {
+                    jQuery("select[name='type-" + (count + 1) + "']").val('datetime');
+                }
+            }
+
+            console.log(db[field])
+            count++;
+        }
+
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
 

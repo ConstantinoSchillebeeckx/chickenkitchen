@@ -5,26 +5,27 @@
 <?php setup_session(); ?>
 
 
-<?php /*
+<?php 
 
-Page allows user to add new tables to DB.  Form collects all required
-info which then fires and AJAX request to the add_table_to_db()
-function found in functions.php.  On success or error, a message
-is displayed to the user - the success message will autohide in 3s.
+/*
+
+Page allows user to add new tables or edit existing ones.  
+
+Form collects all required info which then fires an AJAX request to the add_table_to_db()
+function found in functions.php.  On success or error, a message is displayed to the user 
+- the success message will autohide in 3s.
 
 */
 
 
-if (isset($_GET['table'])) {
-    echo "<h1>Edit table</h1>"; 
-} else {
-    echo '<h1>Add new table</h1>';
-}
+echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
 
 ?>
 
 <div class="alertContainer"></div> <!-- automatically filled by showMsg() -->
 
+
+<!-- form for table info -->
 <form class="form-horizontal" onsubmit="return false;">
   <div class="form-group">
     <label class="col-sm-2 control-label">Table name*</label>
@@ -46,6 +47,8 @@ if (isset($_GET['table'])) {
 </form>
 
 
+
+
 <script  type="text/javascript">
     jQuery(function() {
         // store DB as JS var in case user requests a FK field type
@@ -57,10 +60,16 @@ if (isset($_GET['table'])) {
         jQuery('#type-1').val('varchar'); // automatically set the first field type
         selectChange(1); // call function to show helper text for string type
 
-        // fill table name if available
+        // if editing table instead of creating a new one
         table = '<?php echo $_GET['table'] ;?>';
         if (table && table != '') {
-            jQuery('#table_name').val(table);
+
+            // get table structure
+            var tmp = <?php echo isset($_GET['table']) ? get_db_setup()->asJSON( $_GET['table'] ) : '""'; ?>;
+            var db = tmp.struct;
+            fillEditTableForm(db);
+
+            jQuery('#table_name').val(table); // set table name in form
         }
     });
 </script>
