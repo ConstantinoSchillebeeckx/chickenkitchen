@@ -383,7 +383,7 @@ function revert_item( $ajax_data) {
         $results = $db_conn->query($sql)->fetch(PDO::FETCH_ASSOC);
         $pk_id = $results['_UID_fk'];
         unset($results['_UID_fk']);
-        $status = add_item_to_history_table( $table_history, USER, $pk_id, "Manually reverted", $results, $db_conn );
+        $status = add_item_to_history_table( $table_history, $_SESSION['user_name'], $pk_id, "Manually reverted", $results, $db_conn );
 
         return json_encode(array("msg" => 'Item properly reverted', "status" => true, "hide" => true));
     } else {
@@ -459,7 +459,7 @@ function edit_item_in_db( $ajax_data ) {
         }
     } else {
         // enter data for history table
-        add_item_to_history_table( $table . "_history", USER, $pk_id, "Manually edited", $sent_dat, $db_conn );
+        add_item_to_history_table( $table . "_history", $_SESSION['user_name'], $pk_id, "Manually edited", $sent_dat, $db_conn );
 
         if ( DEBUG ) {
             return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $update_dat ));
@@ -525,7 +525,7 @@ function add_item_to_db( $ajax_data ) {
     } else {
         // enter data for history table
         $_UID_fk = $db_conn->query( "SELECT $pk FROM `$table` ORDER BY $pk DESC LIMIT 1" )->fetch()[$pk]; // UID of last element added
-        add_item_to_history_table( $table . "_history", USER, $_UID_fk, "Manually added", $dat, $db_conn );
+        add_item_to_history_table( $table . "_history", $_SESSION['user_name'], $_UID_fk, "Manually added", $dat, $db_conn );
 
         if ( DEBUG ) {
             return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "sql" => $sql, "bind" => $dat ));
@@ -568,13 +568,10 @@ function batch_update_db( $ajax_data, $files ) {
 
     } else if ( $type == 'batchEdit') {
 
-        // need to handle concern of uniquely identifying row
-        // in cases where table has to PK set by user
+        return batch_edit($db, $table, $files);
 
     } else if ( $type == 'batchDelete') {
 
-        // need to handle concern of uniquely identifying row
-        // in cases where table has to PK set by user
         return batch_delete($db, $table, $files);
 
     }
@@ -583,6 +580,32 @@ function batch_update_db( $ajax_data, $files ) {
 
 
 
+
+
+
+
+/**
+ * Execute batch update
+ * 
+ * In order to execute a batch update the table must
+ * have a unique, required column. Otherwise we can't 
+ * guarantee the proper row is being deleted.
+ * 
+ * 
+ * @params:
+ * (db class) $db - db setup
+ * (str) $table - name of table being acted on
+ * (obj) $files - $_FILES['batchFile']
+ * 
+ * @returns:
+ * json encoded error message for use with showMsg()
+ * 
+*/
+function batch_edit() {
+
+    return json_encode(array("msg" => 'Not yet implemented; see function <code>batch_edit()</code> in functions.php', "status" => false, "hide" => false));
+
+}
 
 
 
@@ -624,8 +647,8 @@ function batch_delete($db, $table, $files ) {
         $all_cols_required = True;
     }
 
-    $delim = validate_uploaded_file( $files['tmp_name'] );
-    if (count($delim) > 1) return $delim;
+    $delim = validate_uploaded_file( $files );
+    if (is_array($delim)) return json_encode($delim);
 
     // loop through file and validate each row
     if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
@@ -674,7 +697,7 @@ function batch_delete($db, $table, $files ) {
         $sql = "DELETE FROM `$table` WHERE $pk IN (" . implode(',', array_fill(0, count($pks), '?')) . ")";
         $stmt = $db_conn->prepare($sql);
         $status = $stmt->execute($pks);
-        $status2 = add_item_to_history_table( $table . "_history", USER, $pks, "Batch deleted", [], $db_conn );
+        $status2 = add_item_to_history_table( $table . "_history", $_SESSION['user_name'], $pks, "Batch deleted", [], $db_conn );
 
         if ( $status === false ) { // error
             if ( DEBUG ) {
@@ -726,8 +749,8 @@ function batch_add($db, $table, $files ) {
     $visible_fields = $db->get_visible_fields( $table );
 
 
-    $delim = validate_uploaded_file( $files['tmp_name'] );
-    if (count($delim) > 1) return $delim;
+    $delim = validate_uploaded_file( $files );
+    if (is_array($delim)) return json_encode($delim);
         
 
     // loop through file and validate each row
@@ -784,7 +807,7 @@ function batch_add($db, $table, $files ) {
         }
     } else {
         // enter data for history table
-        $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, 'User', 'Batch added', $uid_fk );
+        $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, $_SESSION['user_name'], 'Batch added', $uid_fk );
         $status = $stmt->execute();
 
         if ( DEBUG ) {
@@ -800,30 +823,30 @@ function batch_add($db, $table, $files ) {
  * Validate batch uploaded file is plain text
  * and has a delimiter.
  *
- * @params: (str) $file - name of file to check
+ * @params: (str) $file - $_FILES['file'] object
  *
- * @return: delimiter or json_encoded error message
+ * @return: delimiter or array of error message
+ *  ready to be returned with json_encode()
  *
 */
 function validate_uploaded_file( $file ) {
 
     // check if valid file type supplied
-    if ( mime_content_type( $file ) != "text/plain" ) {
+    if ( $file['type'] != "text/plain" ) {
         if (DEBUG) {
-            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false, "log" => mime_content_type( $files['tmp_name'] ) ));
+            return array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false, "log" => $file['type'] );
         } else {
-            return json_encode(array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false));
+            return array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false);
         }
     }
 
 
-
     // figure out delimiter
     $delimiters = array(',','\t',';','|',':');
-    $delim = getFileDelimiter($file, 5, $delimiters); // figure out delimiter
+    $delim = getFileDelimiter($file['tmp_name'], 5, $delimiters); // figure out delimiter
 
     if ( !in_array( $delim, $delimiters ) ) {
-        return json_encode(array("msg" => 'You must use one of the following delimiters: <code>' . implode('</code>,<code>', $delimiters) . "</code>" , "status" => false, "hide" => false));
+        return array("msg" => 'You must use one of the following delimiters: <code>' . implode('</code>,<code>', $delimiters) . "</code>" , "status" => false, "hide" => false);
     }
 
     return $delim;
@@ -930,7 +953,7 @@ function delete_item_from_db( $ajax_data ) {
     // delete item and update history
     $sql = "DELETE FROM `$table` WHERE `_UID` = '$_UID'";
     $db_conn = get_db_conn();
-    add_item_to_history_table( $table . "_history", USER, $_UID, "Manually deleted", [], $db_conn );
+    add_item_to_history_table( $table . "_history", $_SESSION['user_name'], $_UID, "Manually deleted", [], $db_conn );
     $stmt = $db_conn->exec( $sql );
 
     if ( $stmt === false ) { // if error
@@ -1676,6 +1699,24 @@ function batch_form( $table ) { ?>
 <?php }
 
 
+
+
+/**
+ * Function ensures all extra data needed is present in $_SESSION
+ * including the user name and the user role.
+ *
+ * @param: void
+ *
+ * @return: void
+*/
+function setup_session() {
+
+    require_once('config/db.php');
+
+    $_SESSION['user_role'] = USER_ROLE;
+    $_SESSION['user_name'] = USER_NAME;
+
+}
 
 
 

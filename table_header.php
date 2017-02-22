@@ -1,16 +1,23 @@
 <?php
 
 /**
-will print the name of the table currently being viewed as well
-as a group of buttons that handle the events of:
+will setup the button cluster that handle the events of:
  - adding a row to the table
  - downloading table
  - batch
  - edit table
  - delete table
+
+Note that this cluster will only be shown for the following roles:
+ - contributor
+ - editor
+ - admin
+(that is, it'll be hidden from read_only)
+
 */
 ?>
 
+<?php if (in_array($_SESSION['user_role'], array('contributor','editor','admin'))) { ?>
 
 <div class="col-sm-4" style="margin-top:20px">
     <div class="btn-group pull-right" role="group" aria-label="...">
@@ -21,3 +28,5 @@ as a group of buttons that handle the events of:
         <button type="button" title="Delete table" class="btn btn-danger" onclick="deleteTableModal(<?php echo "'" . $_GET['table'] . "'" ?>)"><i class="fa fa-trash fa-2x" aria-hidden="true"></i></button>
     </div>
 </div>
+ 
+<?php } ?>

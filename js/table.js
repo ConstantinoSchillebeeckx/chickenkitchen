@@ -266,7 +266,7 @@ function make_popover_labels( db, fk_vals ) {
             var length = dat.length;
 
             var content = '';
-            if (typeof description !== 'undefined') content += 'Description: ' + description + '<hr>'; // description
+            if (typeof description !== 'undefined' && description != '') content += 'Description: ' + description + '<hr>'; // description
             if (defau) content += 'Default: <code>' + defau + '</code><br>'; // default value
             content += 'Required: <code>' + (required ? 'true' : 'false') + '</code><br>'; // required
             content += 'Unique: <code>' + (unique ? 'true' : 'false') + '</code><br>'; // unique
@@ -733,6 +733,7 @@ function batchFormSubmit( event ) {
         // generate form for XHR send
         var formData = new FormData($('#batchForm')[0]);
 
+
         // since we're uploading a file, our AJAX request needs to be
         // modified a bit to be able to use FormData/XHR
         jQuery.ajax({
@@ -755,7 +756,8 @@ function batchFormSubmit( event ) {
                 button.attr('disabled', false);
             }, 
             success: completeHandler = function(response) {
-                
+
+                console.log(response)                
                 var ajaxResponse = JSON.parse(response);
                 showMsg(ajaxResponse);
                 if (DEBUG) console.log(ajaxResponse);
