@@ -99,6 +99,7 @@ function doAJAX(data, callback) {
 
     ajaxStatus = false; // global!
     ajaxResponse = ''; // global!
+    var button = jQuery("#addTableSubmit");
 
     // send via AJAX to process with PHP
     jQuery.ajax({
@@ -111,20 +112,10 @@ function doAJAX(data, callback) {
 
                 // update button text to loading and disable it
                 if ( data['action'] == 'addTable' ) {
-                    var button = jQuery("#addTableSubmit");
                     button.html('<i class="fa fa-circle-o-notch fa-spin fa-lg" aria-hidden="true"></i> working ...');
                     button.attr('disabled', true);
                 }
             },
-            complete: function() {
-
-                // reset button
-                if ( data['action'] == 'addTable' ) {
-                    var button = jQuery("#addTableSubmit");
-                    button.html('Submit');
-                    button.attr('disabled', false);
-                }
-            }, 
             success: function(response) {
                 ajaxStatus = true;
                 ajaxResponse = response;
@@ -136,6 +127,13 @@ function doAJAX(data, callback) {
                 if (DEBUG) console.log(error);
             },
             complete: function() {
+
+                // reset button
+                if (typeof button !== 'undefined') {
+                    button.html('Submit');
+                    button.attr('disabled', false);
+                }
+
                 callback();
             }
     });

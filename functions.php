@@ -1236,8 +1236,8 @@ function add_table_to_db( $ajax_data ) {
   
         // add comment
         $comment['description'] = $field_description;
-        $bindings['comment'] = json_encode($comment);
-        $sql_str .= " COMMENT :comment";
+        $bindings["comment$i"] = json_encode($comment);
+        $sql_str .= " COMMENT :comment$i";
 
         // add index if not long string and not unique
         if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
