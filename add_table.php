@@ -37,7 +37,7 @@ echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
     </div>
     <div class="col-sm-offset-4 col-sm-2">
       <?php if (isset($_GET['table'])) {
-        echo '<div class="pull-right btn-group"><button type="button" class="btn btn-success" onclick="editTable()">Save changes</button>';
+        echo '<div class="pull-right btn-group"><button type="button" class="btn btn-success" onclick="saveTable(event)">Save changes</button>';
       } else {
         echo '<button type="button" class="btn pull-right btn-success" onclick="addTable(event)" id="addTableSubmit">Create table</button>';
       }?>
@@ -66,7 +66,7 @@ echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
 
             // get table structure
             var tmp = <?php echo isset($_GET['table']) ? get_db_setup()->asJSON( $_GET['table'] ) : '""'; ?>;
-            var db = tmp.struct;
+            db = tmp.struct; // global!
             fillEditTableForm(db);
 
             jQuery('#table_name').val(table); // set table name in form

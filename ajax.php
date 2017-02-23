@@ -33,6 +33,9 @@
         } else if ( $action == 'revertItem' ) { // revert changes from history modal
             echo revert_item( $_GET );
             $error = false;
+        } else if ( $action == 'saveTable' ) { // edit and save table
+            echo save_table( $_GET );
+            $error = false;
         }
     
     }

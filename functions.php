@@ -811,9 +811,9 @@ function batch_add($db, $table, $files ) {
         $status = $stmt->execute();
 
         if ( DEBUG ) {
-            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true, "log" => $stmt->errorInfo(), 'stat' => $stmt ) );
+            return json_encode(array("msg" => "File properly uploaded, $row rows added to the table added to table", "status" => true, "hide" => true, "log" => $stmt->errorInfo(), 'stat' => $stmt ) );
         } else {
-            return json_encode(array("msg" => "Item properly added to table", "status" => true, "hide" => true ));
+            return json_encode(array("msg" => "File properly uploaded, $row rows added to the table added to table", "status" => true, "hide" => true ));
         }
     }
 
@@ -832,7 +832,7 @@ function batch_add($db, $table, $files ) {
 function validate_uploaded_file( $file ) {
 
     // check if valid file type supplied
-    if ( $file['type'] != "text/plain" ) {
+    if ( !in_array( $file['type'], array("text/plain",'text/csv') ) ) {
         if (DEBUG) {
             return array("msg" => 'You must upload a plain text file with some sort of delimiter.', "status" => false, "hide" => false, "log" => $file['type'] );
         } else {
@@ -1059,6 +1059,32 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 }
 
 
+
+
+
+
+
+
+/**
+ * Handle AJAX call for editing and saving a table setup
+ *
+ * @param:
+ * (assoc arr) $ajax_data - keys
+ *  - original: assoc arr of original table setup
+ *  - dat: assoc arr of new setup (same format as for add_new_table)
+ *  - field_num: number of fields
+ *
+ * @return:
+ * json encoded message for use with showMsg()
+ *
+ *
+ *
+*/
+function save_table( $ajax_data ) {
+
+    return json_encode(array("msg" => 'Not yet implemented; see function <code>save_table()</code> in functions.php', "status" => false, "hide" => false));
+
+}
 
 
 
@@ -1447,7 +1473,7 @@ function validate_row( $dat, $table, $edit=False, $visible_fields=False, $requir
             $field_type = $db->get_field( $table, $field_name );
             $field_val = $dat[ $field_name ];
 
-            if ( !empty( $field_val ) && $field_val !== '' ) { // skip empty fields
+            if ( isset( $field_val ) && $field_val !== '' ) { // skip empty fields
 
                 // validate field value in proper format
                 $check = validate_field_value( $field_type, $field_val );
@@ -1478,7 +1504,7 @@ function validate_row( $dat, $table, $edit=False, $visible_fields=False, $requir
                 if ($row_num === False) {
                     return json_encode( array("msg" => "Please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
                 } else {
-                    return json_encode( array("msg" => "Error in row $row_num - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false) );
+                    return json_encode( array("msg" => "Error in row $row_num - please ensure you've filled out all required fields including <code>$field_name</code>.", "status" => false, "hide" => false, "log" => array($dat, $field_val)) );
                 }
 
             }

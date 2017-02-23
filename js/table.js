@@ -456,6 +456,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "retrieve": true,
         "processing": true,
         "serverSide": true,
+        "lengthMenu": [[10, 50, 100, -1], [10, 50, 100, "All"]],
         "ajax": {
             "url": 'ssp.class.php',
             "data": data,
@@ -1083,6 +1084,39 @@ function addField() {
     jQuery("form").append(dom.join('\n'));
 }
 
+
+
+
+
+/* 
+
+Function called when "Save table" button is clicked while
+editing the setup of a table
+
+*/
+function saveTable( event ) {
+    
+    event.preventDefault(); // cancel form submission
+    jQuery('#submit_handle').click(); // needed to validate form
+
+    if (jQuery('form')[0].checkValidity()) { // if valid, load
+        var data = {
+                "action": "saveTable", 
+                "dat": getFormData('form'), // form values
+                "original": db, // variable declared in add_table.php
+                "field_num": fieldNum // number of fields
+        }
+        if (DEBUG) console.log(data);
+    
+        // send data to server
+        doAJAX(data, function() {
+            showMsg(ajaxResponse);
+            if (DEBUG) console.log(ajaxResponse);
+        });
+
+    }
+
+}
 
 
 
