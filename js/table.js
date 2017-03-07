@@ -1103,8 +1103,9 @@ function saveTable( event ) {
         var data = {
                 "action": "saveTable", 
                 "dat": getFormData('form'), // form values
-                "original": db, // variable declared in add_table.php
-                "field_num": fieldNum // number of fields
+                "original": db.struct, // variable declared in add_table.php
+                "fields": db.fields, // original field names
+                "field_num": fieldNum, // number of fields
         }
         if (DEBUG) console.log(data);
     
@@ -1306,11 +1307,12 @@ Returns:
 
 */
 function fillEditTableForm(db) {
-   
+
     var count = 0;
-    for (var field in db) {
-        
-        var dat = db[field];
+    for (var i in db.fields) {
+       
+        var field = db.fields[i]
+        var dat = db.struct[field];
 
         if (!dat.hidden) { 
 
@@ -1339,7 +1341,6 @@ function fillEditTableForm(db) {
 
             // set type
             var type = dat.type;
-            console.log(type)
             if (type === 'varchar(255)') {
                 jQuery("select[name='type-" + (count + 1) + "']").val('varchar');
             } else if (type === 'int(32)') {
@@ -1354,7 +1355,6 @@ function fillEditTableForm(db) {
                 }
             }
 
-            console.log(db[field])
             count++;
         }
 

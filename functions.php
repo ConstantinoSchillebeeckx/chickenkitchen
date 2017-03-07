@@ -132,7 +132,19 @@ function build_table( $table ) {
         <thead>
         <tr class="info">
 
-        <?php foreach ( $fields as $field ) echo "<th>$field <span class='popover-$field fa fa-info-circle fa-lg text-muted' aria-hidden='true'></span></th>"; ?>
+        <?php foreach ( $fields as $field ) {
+            $field_struct = $db->get_field($table, $field);
+            $comment = $field_struct->get_comment();
+
+            // use the field name stored in comment if it exists
+            if (in_array('name', array_keys($comment))) {
+                $field_name = $comment['name'];
+            } else {
+                $field_name = $field;
+            }
+            echo "<th>$field_name <span class='popover-$field fa fa-info-circle fa-lg text-muted' aria-hidden='true'></span></th>"; 
+        }
+        ?>
 
         <th>Action</th>
         </tr>
@@ -1073,6 +1085,7 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
  *  - original: assoc arr of original table setup
  *  - dat: assoc arr of new setup (same format as for add_new_table)
  *  - field_num: number of fields
+ *  - fields: original field names
  *
  * @return:
  * json encoded message for use with showMsg()
@@ -1082,7 +1095,55 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 */
 function save_table( $ajax_data ) {
 
-    return json_encode(array("msg" => 'Not yet implemented; see function <code>save_table()</code> in functions.php', "status" => false, "hide" => false));
+    $db = get_db_conn();
+    $original_dat = $ajax_data['original'];
+    $original_fields = $ajax_data['fields'];
+    $new_dat = $ajax_data['dat'];
+
+    // go through each column and check if it was changed
+    $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => []];
+    $deletes = $original_fields; // list of fields to delete
+    foreach($original_dat as $original_name => $dat) {
+        if ($dat['hidden'] === 'false') {
+            $ix = array_search($original_name, $original_fields); // column index also used in $dat
+
+            // get new data
+            if (isset($new_dat["name-$ix"])) { // if not set, field was deleted
+                $new_name = str_replace(' ', '_', $new_dat["name-$ix"]);
+                $new_default = $new_dat["default-$ix"];
+                $new_description = $new_dat["description-$ix"];
+                $new_required = isset($new_dat["required-$ix"]) ? true : false;
+                $new_unique = isset($new_dat["unique-$ix"]) ? true : false;
+                $new_type = $new_dat["type-$ix"];
+
+                // check new data against original
+                if ($new_name !== $dat['name']) {
+                    array_push($changes['name'], $new_name);
+                }
+                if ($new_default !== $dat['default']) {
+                    array_push($changes['default'], $new_default);
+                }
+                if ($new_description !== $dat['description']) {
+                    array_push($changes['description'], $new_description);
+                }
+                if ($new_required !== ($dat['required'] === true)) {
+                    array_push($changes['required'], $new_required);
+                }
+                if ($new_unique !== ($dat['unique'] === true)) {
+                    array_push($changes['unique'], $new_unique);
+                }
+                if ($new_type !== $dat['type']) {
+                    array_push($changes['type'], $new_type);
+                }
+                unset($deletes[array_search($original_name, $deletes)]);
+            }
+    
+        } else {
+            unset($deletes[array_search($original_name, $deletes)]);
+        }
+    }
+
+    return json_encode(array("msg" => 'Not yet implemented; see function <code>save_table()</code> in functions.php', "status" => false, "hide" => false, "log"=>$changes, 'del' =>$deletes));
 
 }
 

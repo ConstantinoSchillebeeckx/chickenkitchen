@@ -66,8 +66,8 @@ echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
 
             // get table structure
             var tmp = <?php echo isset($_GET['table']) ? get_db_setup()->asJSON( $_GET['table'] ) : '""'; ?>;
-            db = tmp.struct; // global!
-            fillEditTableForm(db);
+            db = tmp; // global!
+            fillEditTableForm(tmp);
 
             jQuery('#table_name').val(table); // set table name in form
         }
