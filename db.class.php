@@ -315,6 +315,12 @@ class Database {
         }
     }
 
+    
+    // given a table and a field, will return unique
+    // values for that field
+    public function get_unique_vals_field( $table, $field ) {
+        return $this->get_field($table, $field)->get_unique_vals();
+    }
 
     // pretty print
     public function show() {

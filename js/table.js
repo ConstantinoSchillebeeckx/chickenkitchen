@@ -1106,6 +1106,7 @@ function saveTable( event ) {
                 "original": db.struct, // variable declared in add_table.php
                 "fields": db.fields, // original field names
                 "field_num": fieldNum, // number of fields
+                "table": table,
         }
         if (DEBUG) console.log(data);
     

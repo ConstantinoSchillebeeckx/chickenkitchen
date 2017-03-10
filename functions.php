@@ -1086,6 +1086,7 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
  *  - dat: assoc arr of new setup (same format as for add_new_table)
  *  - field_num: number of fields
  *  - fields: original field names
+ *  - table: name of table being edited
  *
  * @return:
  * json encoded message for use with showMsg()
@@ -1095,12 +1096,14 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 */
 function save_table( $ajax_data ) {
 
-    $db = get_db_conn();
+    $db_conn = get_db_conn();
     $original_dat = $ajax_data['original'];
     $original_fields = $ajax_data['fields'];
     $new_dat = $ajax_data['dat'];
+    $table = $ajax_data['table'];
 
-    // go through each column and check if it was changed
+
+    // go through each column and collect all changes
     $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => []];
     $deletes = $original_fields; // list of fields to delete
     foreach($original_dat as $original_name => $dat) {
@@ -1109,7 +1112,7 @@ function save_table( $ajax_data ) {
 
             // get new data
             if (isset($new_dat["name-$ix"])) { // if not set, field was deleted
-                $new_name = str_replace(' ', '_', $new_dat["name-$ix"]);
+                $new_name = $new_dat["name-$ix"];
                 $new_default = $new_dat["default-$ix"];
                 $new_description = $new_dat["description-$ix"];
                 $new_required = isset($new_dat["required-$ix"]) ? true : false;
@@ -1117,23 +1120,24 @@ function save_table( $ajax_data ) {
                 $new_type = $new_dat["type-$ix"];
 
                 // check new data against original
-                if ($new_name !== $dat['name']) {
-                    array_push($changes['name'], $new_name);
+                if ($new_name !== $dat['comment']['name']) {
+                    $changes['name'][$original_name] = $new_name;
                 }
                 if ($new_default !== $dat['default']) {
-                    array_push($changes['default'], $new_default);
+                    $changes['default'][$original_name] = $new_default;
                 }
-                if ($new_description !== $dat['description']) {
-                    array_push($changes['description'], $new_description);
+                if ($new_description !== $dat['comment']['description']) {
+                    $changes['description'][$original_name] = $new_description;
                 }
-                if ($new_required !== ($dat['required'] === true)) {
-                    array_push($changes['required'], $new_required);
+                if ($new_required !== ($dat['required'] === 'true')) {
+                    $changes['required'][$original_name] = $new_required;
                 }
-                if ($new_unique !== ($dat['unique'] === true)) {
-                    array_push($changes['unique'], $new_unique);
+                if ($new_unique !== ($dat['unique'] === 'true')) {
+                    $changes['unique'][$original_name] = $new_unique;
                 }
-                if ($new_type !== $dat['type']) {
-                    array_push($changes['type'], $new_type);
+                if (strpos($dat['type'], $new_type) === false) {
+                    if ($new_type == 'fk') $new_type = $new_dat["foreignKey-$ix"]; // if change to FK, store ref instead
+                    $changes['type'][$original_name] = $new_type;
                 }
                 unset($deletes[array_search($original_name, $deletes)]);
             }
@@ -1143,9 +1147,216 @@ function save_table( $ajax_data ) {
         }
     }
 
+    // ensure something is being updated
+    $error = True;
+    foreach($changes as $key => $val) {
+        if (count(array_values($val)) > 0) $error = False;
+    }
+    if ($error && count($deletes) == 0) {
+        return json_encode(array("msg" => 'No changes requested, table has been left unmodified.', "status" => true, "hide" => true));
+    }
+
+    // check if required changes are ok
+    if (count(array_values($changes['required']))) {
+        foreach($changes['required'] as $field => $field_change) {
+            $check = check_field_required_change($db_conn, $table, $field, $field_change);
+            if ($check !== true) return $check;
+        }
+    }
+
+
+    // check if unique changes are ok
+    if (count(array_values($changes['unique']))) {
+        foreach($changes['unique'] as $field => $field_change) {
+            $check = check_field_unique_change($db_conn, $table, $field, $field_change);
+            if ($check !== true) return $check;
+        }
+    }
+
+
+    // check if type changes are ok
+    if (count(array_values($changes['type']))) {
+        foreach($changes['type'] as $field => $field_change) {
+            $check = check_field_type_change($db_conn, $table, $field, $field_change);
+            if ($check !== true) return $check;
+        }
+    }
+
+    // TODO - handle case of string length change
+
+
     return json_encode(array("msg" => 'Not yet implemented; see function <code>save_table()</code> in functions.php', "status" => false, "hide" => false, "log"=>$changes, 'del' =>$deletes));
 
 }
+
+
+/**
+ * Validate that field type attribute can be changed.
+ *
+ * Function will check whether a field type can be changed
+ * based on the type of field:
+ * - change to datetime: all fields must match regex '^[0-9]{1,4}-[0-9]{1,2}-[0-9]{1,2} [0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}$'
+ * - change to varchar: don't need to check
+ * - change to int: all fields must match regex '^[0-9]$'
+ * - change to float: all fields must match regex '^[0-9]*\.?[0-9]$'
+ * - change to FK: all fields must have a valid FK value
+ *
+ * @param:
+ * (pdo) $db_conn - connection to database
+ * (str) $table - name of table being modified
+ * (str) $field - name of field being updated
+ * (type) $type - field type to change to, note that if changing to an FK
+ *  this value will be the reference table.field
+ *
+ * @return:
+ * json encoded message for use with showMsg() if field
+ * cannot be changed to required; otherwise true
+ *
+*/
+function check_field_type_change($db_conn, $table, $field, $type) {
+
+    $error = false;
+
+    $name_map = ['int' => 'Integer', 'float' => 'Float', 'date' => 'Date', 'datetime' => 'Date & Time'];
+
+    // get number of rows in table
+    $q = $db_conn->query("SELECT count(*) FROM `$table`");
+    $num_rows = intval($q->fetchColumn());
+
+    if ($type == 'varchar') {
+        // don't need to check anything, any entry can be a str
+    } else if ($type == 'float') {
+
+        // check how many rows match float regex
+        $q = $db_conn->query("SELECT count(*) FROM `$table` WHERE `$field` REGEXP '^[0-9]*\.?[0-9]$';");
+        $num = intval($q->fetchColumn());
+        if ($num !== $num_rows) $error = true;
+
+    } else if ($type == 'int') {
+
+        // check how many rows match int regex
+        $q = $db_conn->query("SELECT count(*) FROM `$table` WHERE `$field` REGEXP '^[0-9]$';");
+        $num = intval($q->fetchColumn());
+        if ($num !== $num_rows) $error = true;
+
+    } else if ($type == 'date' || $type == 'datetime') {
+
+        // check how many rows match datetime regex
+        // note that date fields are also stored as datetime
+        $q = $db_conn->query("SELECT count(*) FROM `$table` WHERE `$field` REGEXP '^[0-9]{1,4}-[0-9]{1,2}-[0-9]{1,2} [0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}$';");
+        $num = intval($q->fetchColumn());
+        if ($num !== $num_rows) $error = true;
+
+    } else if (strpos($type, '.')) { // if FK, should be of form table.field
+
+        // check that field contains only FK values
+        $ref_table = explode('.', $type)[0];
+        $ref_field = explode('.', $type)[1];
+        $vals = get_db_setup()->get_unique_vals_field($ref_table, $ref_field); // field must contain only these values
+        $vals_str = implode("','", $vals);
+        $q = $db_conn->query("SELECT count(*) FROM `$table` WHERE `$field` IN ('$vals_str') ;");
+        $num = intval($q->fetchColumn());
+
+        if ($num !== $num_rows) $error = true;
+        $name_map[$type] = 'Foreign';
+
+    }
+
+   
+    if ($error) { 
+        $type_clean = $name_map[$type];
+        if ($type_clean == 'Foreign') {
+            return json_encode(array("msg" => "You cannot change the field <code>$field</code> to <code>$type_clean</code> because all values must be one of <code>'$vals_str'</code>; update these values before updating this field.", "status" => false, "hide" => false));
+        } else {
+            return json_encode(array("msg" => "You cannot change the field <code>$field</code> to <code>$type_clean</code> because it contains values that cannot be converted to this type; update these values before updating this field.", "status" => false, "hide" => false));
+        }
+    } else {
+        return true;
+    }
+
+}
+
+
+
+
+/**
+ * Validate that field unique attribute can be changed.
+ *
+ * Function will only check field if requesting to change
+ * it to a unique attribute, in this case the database
+ * is queried with a "group by ... having > 1" query
+ * to check how many of the fields values are not
+ * unique
+ *
+ * @param:
+ * (pdo) $db_conn - connection to database
+ * (str) $table - name of table being modified
+ * (str) $field - name of field being updated
+ * (bool) $unique - whether field should be required
+ *
+ * @return:
+ * json encoded message for use with showMsg() if field
+ * cannot be changed to required; otherwise true
+ *
+*/
+function check_field_unique_change($db_conn, $table, $field, $unique) {
+
+    if ($unique) { // if changing to unique
+
+        // check that every value in field is unique
+        $q = $db_conn->query("SELECT count(*) FROM (SELECT `$field` FROM `$table` GROUP BY `$field` HAVING count(*) > 1) a"); // will return a single number representing the number of field values that are not unique
+        $num = intval($q->fetchColumn());
+        if ($num > 0) return json_encode(array("msg" => "You cannot change the field <code>$field</code> to unique because its current values are not unique; update these values before updating this field.", "status" => false, "hide" => false));
+    }
+
+    return true;
+
+}
+
+
+/**
+ * Validate that field required attribute can be changed.
+ *
+ * Function will only check the field if requesting to
+ * be required - in this case, this will check whether
+ * any of the values for the field are currently empty.
+ * If so, field cannot be made required.
+ *
+ * @param:
+ * (pdo) $db_conn - connection to database
+ * (str) $table - name of table being modified
+ * (str) $field - name of field being updated
+ * (bool) $required - whether field should be required
+ *
+ * @return:
+ * json encoded message for use with showMsg() if field
+ * cannot be changed to required; otherwise true
+ *
+*/
+function check_field_required_change($db_conn, $table, $field, $required) {
+
+    
+    if ($required) { // if changing to required
+
+        // check that no item is empty in table
+        $q = $db_conn->query("SELECT count(`$field`) FROM `$table` WHERE `$field` is not null");
+        $num = intval($q->fetchColumn());
+        if ($num > 0) return json_encode(array("msg" => "You cannot change the field <code>$field</code> to required because it currently has empty cells; add values to these cells before updating this field.", "status" => false, "hide" => false));
+
+    }
+
+    return true;
+
+}
+
+
+
+
+
+
+
+
+
 
 
 
