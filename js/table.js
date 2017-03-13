@@ -1339,6 +1339,10 @@ function fillEditTableForm(db) {
             var unique = dat.unique;
             jQuery("input[name='unique-" + (count + 1) + "']").prop('checked',unique);
 
+            // set long string
+            var length = dat.length;
+            if (dat.length == 4096) jQuery("input[name='longString-" + (count + 1) + "']").prop('checked',true); 
+
 
             // set type
             var type = dat.type;

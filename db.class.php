@@ -106,7 +106,7 @@ class Database {
 
     // return array of tables names
     // that are all data tables (not history)   
-    // if none exist return false
+    // if none exist return empty array
     public function get_data_tables() {
         $data_tables = [];
         foreach ( $this->get_all_tables() as $table ) {
@@ -117,7 +117,7 @@ class Database {
         if ( count( $data_tables ) ) {
             return $data_tables;
         } else {
-            return false;
+            return array();
         }
     }
 
@@ -225,6 +225,24 @@ class Database {
             return false;
         }
         
+    }
+
+
+    // given a table name and field, will return the fields
+    // comment value as an assoc array
+    public function get_comment($table, $field) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            $table_class = $this->get_struct()[$table];
+            if ( in_array( $field, $table_class->get_fields() ) ) {
+                $field_class = $table_class->get_field($field);
+                $comment = $field_class->get_comment();
+                if (is_array($comment)) {
+                    return $comment;
+                } else {
+                    return [];
+                }
+            }
+        }
     }
 
 
