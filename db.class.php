@@ -35,7 +35,7 @@ class Database {
         if ($comp) {
 
             $this->company = $comp;
-            $this->name = DB_NAME;
+            $this->name = NAME_DB;
 
             // get list of tables
             $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '" . $this->name . "'";
@@ -451,11 +451,6 @@ class Table {
         return $this->is_history;
     }
 
-    // return full name (with DB prepended)
-    public function get_full_name() {
-        return DB_NAME_EL . '.' . $this->get_name();
-    }
-
     // return an array of non-hidden fields
     public function get_visible_fields() {
         $fields = array();
@@ -710,11 +705,6 @@ class Field {
         return $this->ref;
     }
 
-    // return full name of field (db123.matatu_samples.sample)
-    public function get_full_name() {
-        return DB_NAME_EL . '.' . $this->get_table() . '.' . $this->get_name();
-    }    
-
     // return name of table this field belongs to
     public function get_table() {
         return $this->table;
@@ -768,7 +758,7 @@ class Field {
 
             if ( !isset( $db ) ) $db = get_db_conn();
 
-            $sql = sprintf("SELECT DISTINCT(`%s`) FROM `%s`.`%s`", $this->get_name(), DB_NAME, $this->get_table());
+            $sql = sprintf("SELECT DISTINCT(`%s`) FROM `%s`.`%s`", $this->get_name(), NAME_DB, $this->get_table());
             $result = $db->query($sql)->fetchAll();
             $vals = array();
 
@@ -804,7 +794,7 @@ class Field {
             $ref = explode('.',$this->fk_ref);
             $ref_table = $ref[0];
             $ref_field = $ref[1];
-            $sql = sprintf( "SELECT DISTINCT(`%s`) from `%s`.`%s` ORDER BY `%s`", $ref_field, DB_NAME, $ref_table, $ref_field );
+            $sql = sprintf( "SELECT DISTINCT(`%s`) from `%s`.`%s` ORDER BY `%s`", $ref_field, NAME_DB, $ref_table, $ref_field );
             $res = $db->query($sql)->fetchAll();
             $vals = array();
 

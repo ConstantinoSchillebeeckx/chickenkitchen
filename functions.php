@@ -12,14 +12,13 @@
 
 function get_db_conn() {
     
-    require_once "config/db.php"; // load DB variables
-    //require_once "lib/Medoo/medoo.php"; // SQL library
+    require "config/db.php"; // load DB variables
 
     // Initialize connection
     try {
 
-        $dsn = sprintf('mysql:dbname=%s;host=%s;charset=UTF8', DB_NAME, DB_HOST);
-        $conn = new PDO($dsn, DB_USER, DB_PASS);
+        $dsn = sprintf('mysql:dbname=%s;host=%s;charset=UTF8', NAME_DB, HOST_DB);
+        $conn = new PDO($dsn, USER_DB, PASS_DB);
 
         // set the PDO error mode to silent
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT);
@@ -27,7 +26,7 @@ function get_db_conn() {
         return $conn;
 
     } catch(PDOException $e) {
-        echo "Connection failed: " . $e->getMessage();
+        echo "MySQL connection failed: " . $e->getMessage();
     }
 
 
@@ -207,7 +206,6 @@ function list_tables() {
 
     echo '</div>';
 
-    var_dump(str_replace('"',"'",json_encode($db->get_comment('tall','AnimalUID'))));
 }
 
 

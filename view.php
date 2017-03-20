@@ -1,10 +1,11 @@
 <?php require_once 'header.php'; ?>
-<?php require_once 'nav.php'; ?>
 <?php require_once 'functions.php'; ?>
 <?php setup_session(); ?>
 
 
-<?php /*
+<?php 
+
+/*
 
 This is the main page most users will spend their time on, it displays the contents of a table defined by the
 $_GET['table'] parameter; if $_GET['table'] not set, page will show list of tables available for viewing.
