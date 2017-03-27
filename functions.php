@@ -1076,12 +1076,11 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 
 
 /**
- * Handle AJAX call for editing and saving a table setup
+ * Handle AJAX call for editing a table setup
  *
  * @param:
  * (assoc arr) $ajax_data - keys
- *  - original: assoc arr of original table setup
- *  - dat: assoc arr of new setup (same format as for add_new_table)
+ *  - dat: assoc arr of new & original setup ( see JS function getTableSetupForm() )
  *  - field_num: number of fields
  *  - fields: original field names
  *  - table: name of table being edited
@@ -1092,86 +1091,103 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 */
 function save_table( $ajax_data ) {
 
+
     $db_conn = get_db_conn();
     $db = get_db_setup();
-    $original_dat = $ajax_data['original'];
-    $original_fields = $ajax_data['fields'];
-    $new_dat = $ajax_data['dat'];
-    $original_table = $ajax_data['table'];
-    $new_table = $new_dat['table_name'];
+    $original_fields = $ajax_data['fields']; // NOTE: the order of this array is the same order as the data stored in 'dat'
+    $dat = $ajax_data['dat'];
+    $field_num = intval($ajax_data['field_num']);
+    $original_table = $dat['table_name']['original'];
+    $new_table = $dat['table_name']['update'];
 
     // check table name change
     $current_tables = $db->get_data_tables();
-    if ($new_table !== $original_table && in_array($new_table, $current_tables)) {
-        return json_encode(array("msg" => "The table name <code>$new_table</code> already exists, please choose one that isn't in the following list: <code>" . implode(',', $current_tables) . "</code>", "status" => false, "hide" => false));
-    }
-
-    // go through each column and collect all changes
-    $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => [], 'length' =>[]];
-    $deletes = $original_fields; // list of fields to delete
-    foreach($original_dat as $original_name => $dat) {
-        if ($dat['hidden'] === 'false') {
-            $ix = array_search($original_name, $original_fields); // column index also used in $dat
-
-            // get new data
-            if (isset($new_dat["name-$ix"])) { // if not set, field was deleted
-                $new_name = $new_dat["name-$ix"]; // store name as given, will need to replace spaces with '_'
-                $new_default = $new_dat["default-$ix"];
-                $new_description = $new_dat["description-$ix"];
-                $new_required = isset($new_dat["required-$ix"]) ? true : false;
-                $new_unique = isset($new_dat["unique-$ix"]) ? true : false;
-                $new_type = $new_dat["type-$ix"]; // type comes in as varchar, float, date, varchar, int, datetime
-                $new_length = false;
-                if ($new_dat["type-$ix"] == 'varchar') {
-                    if ($new_dat["longString-$ix"] === "true") {
-                        $new_length = 4096;
-                    } else {
-                        $new_length = 255;
-                    }
-                }
-
-                // check new data against original
-                if ($new_name !== $dat['comment']['name']) {
-                    $changes['name'][$original_name] = $new_name;
-                }
-                if ($new_default !== $dat['default']) {
-                    $changes['default'][$original_name] = $new_default;
-                }
-                if ($new_description !== $dat['comment']['description']) {
-                    $changes['description'][$original_name] = $new_description;
-                }
-                if ($new_required !== ($dat['required'] === 'true')) {
-                    $changes['required'][$original_name] = $new_required;
-                }
-                if ($new_unique !== ($dat['unique'] === 'true')) {
-                    $changes['unique'][$original_name] = $new_unique;
-                }
-                if (strpos($dat['type'], $new_type) === false) {
-                    if ($new_type == 'fk') $new_type = $new_dat["foreignKey-$ix"]; // if change to FK, store ref instead
-                    $changes['type'][$original_name] = $new_type;
-                }
-                if ($new_length > 0 && $new_length !== intval($dat['length'])) {
-                    $changes['length'][$original_name] = $new_length;
-                }
-                unset($deletes[array_search($original_name, $deletes)]);
-            }
-    
+    $table_name_change = false;
+    if ($new_table !== $original_table) {
+        if (in_array($new_table, $current_tables)) {
+            return json_encode(array("msg" => "The table name <code>$new_table</code> already exists, please choose one that isn't in the following list: <code>" . implode(',', $current_tables) . "</code>", "status" => false, "hide" => false));
         } else {
-            unset($deletes[array_search($original_name, $deletes)]);
+            $table_name_change = $new_table;
         }
     }
 
-    // ensure something is being updated
-    $error = True;
-    foreach($changes as $key => $val) {
-        if (count(array_values($val)) > 0) $error = False;
+
+    // go through each column and collect all changes
+    $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => [], 'length' =>[]];
+    $delete_cols = $original_fields; // list of fields to delete
+    $new_cols = []; // list of newly added columns
+    foreach($dat as $key => $val) { // key = 'field-x', val = {'original': {}, 'update': {}}
+
+        if (strpos($key, 'field-') !== false) { // skip 'table_name' key
+            $original_dat = $val['original'];
+            $update_dat = $val['update'];
+
+            if ($original_dat != null) {
+                $original_name = $original_dat['name'];
+            } else { // if new field
+                $original_name = $update_dat['name'];
+                $new_cols[] = $original_name;
+            }
+
+            $new_name = $update_dat["name"]; // store name as given, will need to replace spaces with '_'
+            $new_default = $update_dat["default"];
+            $new_description = $update_dat["description"];
+            $new_required = isset($update_dat["required"]) ? true : false;
+            $new_unique = isset($update_dat["unique"]) ? true : false;
+            $new_type = $update_dat["type"]; // type comes in as varchar, float, date, varchar, int, datetime
+            $new_length = false;
+            if ($update_dat["type"] == 'varchar') {
+                if ($update_dat["longString"] === "true") {
+                    $new_length = 4096;
+                } else {
+                    $new_length = 255;
+                }
+            }
+
+            // check new data against original
+            if ($original_dat == null || $new_name !== $original_dat['comment']['name']) {
+                $changes['name'][$original_name] = $new_name;
+            }
+            if ($original_dat == null || $new_default !== $original_dat['default']) {
+                $changes['default'][$original_name] = $new_default;
+            }
+            if ($original_dat == null || $new_description !== $original_dat['comment']['description']) {
+                $changes['description'][$original_name] = $new_description;
+            }
+            if ($original_dat == null || $new_required !== ($original_dat['required'] === 'true')) {
+                $changes['required'][$original_name] = $new_required;
+            }
+            if ($original_dat == null || $new_unique !== ($original_dat['unique'] === 'true')) {
+                $changes['unique'][$original_name] = $new_unique;
+            }
+            if ($original_dat == null || strpos($original_dat['type'], $new_type) === false) {
+                if ($new_type == 'fk') $new_type = $update_dat["foreignKey"]; // if change to FK, store ref instead
+                $changes['type'][$original_name] = $new_type;
+            }
+            if ($original_dat == null || ($new_length > 0 && $new_length !== intval($original_dat['length']))) {
+                $changes['length'][$original_name] = $new_length;
+            }
+
+            // if original field name is part of original fields, remove it from the
+            // to be deleted array
+            if (in_array($original_name, $delete_cols)) {
+                unset($delete_cols[array_search($original_name, $delete_cols)]);
+            }
+        } 
     }
-    if ($error && count($deletes) == 0) {
+
+    // ensure something is being updated
+    $no_changes = True;
+    foreach($changes as $key => $val) {
+        if (count(array_values($val)) > 0) $no_changes = False;
+    }
+    if ($no_changes && count($delete_cols) == 0 && count($new_cols) == 0) {
         return json_encode(array("msg" => 'No changes requested, table has been left unmodified.', "status" => true, "hide" => true));
     }
 
+
     // check if required changes are ok
-    if (count(array_values($changes['required']))) {
+    if (count(array_values($changes['required'])) && in_array($field, $original_fields)) {
         foreach($changes['required'] as $field => $field_change) {
             $check = check_field_required_change($db_conn, $original_table, $field, $field_change);
             if ($check !== true) return $check;
@@ -1179,7 +1195,7 @@ function save_table( $ajax_data ) {
     }
 
     // check if unique changes are ok
-    if (count(array_values($changes['unique']))) {
+    if (count(array_values($changes['unique'])) && in_array($field, $original_fields)) {
         foreach($changes['unique'] as $field => $field_change) {
             $check = check_field_unique_change($db_conn, $original_table, $field, $field_change);
             if ($check !== true) return $check;
@@ -1187,7 +1203,7 @@ function save_table( $ajax_data ) {
     }
 
     // check if type changes are ok
-    if (count(array_values($changes['type']))) {
+    if (count(array_values($changes['type'])) && in_array($field, $original_fields)) {
         foreach($changes['type'] as $field => $field_change) {
             $check = check_field_type_change($db_conn, $original_table, $field, $field_change);
             if ($check !== true) return $check;
@@ -1195,13 +1211,13 @@ function save_table( $ajax_data ) {
     }
 
     // check that fields names are unique
-    if (count(array_values($changes['name']))) {
+    if (count(array_values($changes['name'])) && in_array($field, $original_fields)) {
         $check = check_field_name_change($original_fields, $changes['name']);
         if ($check !== true) return $check;
     }
     
     // check that str length change is ok
-    if (count(array_values($changes['length']))) {
+    if (count(array_values($changes['length'])) && in_array($field, $original_fields)) {
         foreach($changes['length'] as $field => $field_change) {
             $check = check_field_length_change($db_conn, $original_table, $field, $field_change);
             if ($check !== true) return $check;
@@ -1275,10 +1291,23 @@ function save_table( $ajax_data ) {
         }
     }
 
-    // TODO add/delete columns
     // history table!
 
-    $sql_table = "ALTER TABLE `$original_table` CHANGE COLUMN " . implode(', ', $sql_parts);
+    // if at least one field is being updated
+    if (!$no_changes) $sql_table = "ALTER TABLE `$original_table` CHANGE COLUMN " . implode(', ', $sql_parts) . "; ";
+
+    // if removing columns
+    if (count($delete_cols) > 0) $sql_table .= "ALTER TABLE `$original_table` DROP COLUMN `". implode('`, DROP COLUMN `', $delete_cols) . "`;"; 
+
+    // if adding columns
+    // XXX need to validate new field info & construct SQL
+
+    // if renaming table
+    if ($table_name_change !== false) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
+
+
+    return json_encode(array("msg" => '.', "status" => true, "hide" => true, 'dat'=>$dat, 'changes'=>$changes, 'del'=>$delete_cols, 'new'=>$new_cols, 'sql'=>$sql_table));
+
     $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
 
     // Execute
@@ -1305,7 +1334,16 @@ function save_table( $ajax_data ) {
 
 
 
-
+/**
+ * Validate whether field length can be changed
+ *
+ * @param:
+ * (pdo) $db_conn - connection to database
+ * (str) $table - name of table being modified
+ * (str) $field - name of field being updated
+ * (type) $field_change - field length to change to either 4096 or 255
+ *
+*/
 function check_field_length_change($db_conn, $table, $field, $field_change) {
 
     if ($field_change === 4096) {
@@ -1405,6 +1443,11 @@ function check_field_type_change($db_conn, $table, $field, $type) {
     $error = false;
 
     $name_map = ['int' => 'Integer', 'float' => 'Float', 'date' => 'Date', 'datetime' => 'Date & Time'];
+    $db = get_db_setup();
+    $table_fields = $db->get_visible_fields($table);
+
+    if (!in_array($field, $table_fields))  return true; // if new field, don't need to check type change
+    
 
     // get number of rows in table
     $q = $db_conn->query("SELECT count(*) FROM `$table`");

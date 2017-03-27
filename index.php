@@ -1,4 +1,6 @@
 <?php if (session_status() == PHP_SESSION_NONE) session_start(); ?>
+<?php require_once 'functions.php'; ?>
+<?php setup_session(); ?>
 <?php
 /**
  * Front to the WordPress application. This file doesn't do anything, but loads

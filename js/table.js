@@ -103,7 +103,7 @@ function doAJAX(data, callback) {
 
     // send via AJAX to process with PHP
     jQuery.ajax({
-            url: 'ajax.php',
+            url: 'http://meepmoop.com/chickenkitchen/ajax.php',
             type: "GET",
             data: data,
             dataType: 'json',
@@ -140,6 +140,69 @@ function doAJAX(data, callback) {
 
 }
 
+
+
+
+
+/* Will parse form on the edit table page into obj for use with AJAX
+
+Parameters:
+===========
+- sel : str
+        selector for form (e.g. form)
+- db : obj
+       current database setup 
+
+Returns:
+========
+- obj : with form input field values in the form
+{'field-x': {'original':{...}, 'update':{} }, ..., 'table_name': {'original': xx, 'update': xx } }
+
+*/
+function getTableSetupForm(sel, db) {
+
+    var data = {};
+
+    data['table_name'] = {'original':table, 'update':''}; // table is global
+
+    var formData = jQuery(sel).serializeArray(); // form data
+
+    jQuery.each(formData, function() {
+        var val = this.value;
+        var ix = this.name.split('-')[1];
+        var dat_name = this.name.split('-')[0];
+
+        if (typeof ix !== 'undefined') { // skip table name
+
+            if (val == 'on') {
+                val = true;
+            } else if (val == '') {
+                val = null;
+            }
+
+            if (!('field-' + ix in data)) { // if field-X key not already in obj
+                var fieldNum = parseInt(ix)-1;
+                if (fieldNum in db['fields']) {
+                    var original_name = db['fields'][fieldNum];
+                    var original_dat = db['struct'][original_name];
+                    data['field-' + ix] = {'original':original_dat, 'update':{}}
+                } else { // if newly added field
+                    data['field-' + ix] = {'original':null, 'update':{}}
+                }
+            }
+            data['field-' + ix]['update'][dat_name] = val;
+
+
+        } else {
+
+            if (dat_name == 'table_name') data['table_name']['update'] = val;
+
+        }
+    })
+
+    return data
+
+}
 
 
 
@@ -1019,6 +1082,26 @@ function deleteTableModal(tableName) {
 
 }
 
+/*
+onclick event handler for closing field box in add/edit table
+
+The global var 'fieldNum' keeps track of the number of fields
+for the new (to be created) table, or the current (while editing)
+table. This var is used to uniquely identify each input field for
+each table field (e.g. default-5 is the default value for field 5).
+
+When editing a table, the fieldNum var should not decrease
+since we need to handle the case where the user deletes a field
+and then adds another. in this case, there could be a collision
+of input field names if we decrease fieldNum.
+
+*/
+function deleteField() {
+
+    // only decrease counter if editing a table
+    if (table == '') fieldNum -= 1;
+
+}
 
 
 /* Function called by "Add field" button on add table template page
@@ -1030,7 +1113,7 @@ function addField() {
     var dom = ['<div class="panel panel-default" style="margin-bottom:20px;" id="field-' + fieldNum + '">',
             '<div class="panel-heading">',
             '<span class="panel-title">Field #' + fieldNum + '</span>',
-            '<button type="button" onclick="fieldNum-=1;" class="close" data-dismiss="alert" data-target="#field-' + fieldNum + '"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>',
+            '<button type="button" onclick="deleteField()" class="close" data-dismiss="alert" data-target="#field-' + fieldNum + '"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>',
             '</div>',
             '<div class="panel-body">',
             '<div class="form-group">',
@@ -1082,6 +1165,8 @@ function addField() {
             '</div>',
             '</div>']
     jQuery("form").append(dom.join('\n'));
+
+    //window.scrollTo(0,document.body.scrollHeight); // scroll to bottom of page
 }
 
 
@@ -1099,12 +1184,17 @@ function saveTable( event ) {
     event.preventDefault(); // cancel form submission
     jQuery('#submit_handle').click(); // needed to validate form
 
+    //console.log(getTableSetupForm('form', db));
+
+    // remove hidden _UID from field list
+    var visibleFields = db.fields;
+    if (visibleFields.indexOf('_UID') > -1) visibleFields.splice(visibleFields.indexOf('_UID'), 1);
+
     if (jQuery('form')[0].checkValidity()) { // if valid, load
         var data = {
                 "action": "saveTable", 
-                "dat": getFormData('form'), // form values
-                "original": db.struct, // variable declared in add_table.php
-                "fields": db.fields, // original field names
+                "dat": getTableSetupForm('form', db), // form values
+                "fields": visibleFields, // original field names
                 "field_num": fieldNum, // number of fields
                 "table": table,
         }
