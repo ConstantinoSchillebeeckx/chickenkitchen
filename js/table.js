@@ -150,8 +150,10 @@ Parameters:
 ===========
 - sel : str
         selector for form (e.g. form)
+- table : str
+        name of original table
 - db : obj
-       current database setup 
+       current database setup (optional)
 
 Returns:
 ========
@@ -159,13 +161,14 @@ Returns:
 {'field-x': {'original':{...}, 'update':{} }, ..., 'table_name': {'original': xx, 'update': xx } }
 
 */
-function getTableSetupForm(sel, db) {
+function getTableSetupForm(sel, table, db) {
 
     var data = {};
 
     data['table_name'] = {'original':table, 'update':''}; // table is global
 
     var formData = jQuery(sel).serializeArray(); // form data
+
 
     jQuery.each(formData, function() {
         var val = this.value;
@@ -182,7 +185,7 @@ function getTableSetupForm(sel, db) {
 
             if (!('field-' + ix in data)) { // if field-X key not already in obj
                 var fieldNum = parseInt(ix)-1;
-                if (fieldNum in db['fields']) {
+                if (db !== null && fieldNum in db['fields']) {
                     var original_name = db['fields'][fieldNum];
                     var original_dat = db['struct'][original_name];
                     data['field-' + ix] = {'original':original_dat, 'update':{}}
@@ -1193,7 +1196,7 @@ function saveTable( event ) {
     if (jQuery('form')[0].checkValidity()) { // if valid, load
         var data = {
                 "action": "saveTable", 
-                "dat": getTableSetupForm('form', db), // form values
+                "dat": getTableSetupForm('form', table, db), // form values
                 "fields": visibleFields, // original field names
                 "field_num": fieldNum, // number of fields
                 "table": table,
@@ -1227,7 +1230,7 @@ function addTable( event ) {
     if (jQuery('form')[0].checkValidity()) { // if valid, load
         var data = {
                 "action": "addTable", 
-                "dat": getFormData('form'), // form values
+                "dat": getTableSetupForm('form', null, null), // form values
                 "field_num": fieldNum // number of fields
         }
         if (DEBUG) console.log(data);

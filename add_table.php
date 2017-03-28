@@ -59,6 +59,7 @@ echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
         jQuery('#type-1').val('varchar'); // automatically set the first field type
         selectChange(1); // call function to show helper text for string type
 
+
         // if editing table instead of creating a new one
         table = '<?php echo $_GET['table'] ;?>';
         if (table && table != '') {

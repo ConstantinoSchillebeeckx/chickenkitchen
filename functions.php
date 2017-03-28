@@ -1113,9 +1113,11 @@ function save_table( $ajax_data ) {
 
 
     // go through each column and collect all changes
-    $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => [], 'length' =>[]];
+    $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => [], 'length' =>[]]; // changes to current fields
     $delete_cols = $original_fields; // list of fields to delete
-    $new_cols = []; // list of newly added columns
+    $new_cols = []; // list of newly added columns with key as name and value as assoc arr of new data (to be used with validate_field())
+    $original_data = []; // assoc array of original data, key is field name, value is data
+    $field_list = []; // new list of field names
     foreach($dat as $key => $val) { // key = 'field-x', val = {'original': {}, 'update': {}}
 
         if (strpos($key, 'field-') !== false) { // skip 'table_name' key
@@ -1126,7 +1128,7 @@ function save_table( $ajax_data ) {
                 $original_name = $original_dat['name'];
             } else { // if new field
                 $original_name = $update_dat['name'];
-                $new_cols[] = $original_name;
+                $new_cols[$original_name] = $update_dat;
             }
 
             $new_name = $update_dat["name"]; // store name as given, will need to replace spaces with '_'
@@ -1145,26 +1147,34 @@ function save_table( $ajax_data ) {
             }
 
             // check new data against original
-            if ($original_dat == null || $new_name !== $original_dat['comment']['name']) {
+            if ($original_dat != null && $new_name !== $original_dat['comment']['name']) {
                 $changes['name'][$original_name] = $new_name;
+                $original_data[$original_name] = $original_dat; // if changing name, will need all other field info
+                $field_list[] = $new_name;
+            } else {
+                if ($original_dat == null) { // if new field
+                    // skip, will check when validating new fields
+                } else {
+                    $field_list[] = $original_dat['comment']['name'];
+                }
             }
-            if ($original_dat == null || $new_default !== $original_dat['default']) {
+            if ($original_dat != null && $new_default !== $original_dat['default']) {
                 $changes['default'][$original_name] = $new_default;
             }
-            if ($original_dat == null || $new_description !== $original_dat['comment']['description']) {
+            if ($original_dat != null && $new_description !== $original_dat['comment']['description']) {
                 $changes['description'][$original_name] = $new_description;
             }
-            if ($original_dat == null || $new_required !== ($original_dat['required'] === 'true')) {
+            if ($original_dat != null && $new_required !== ($original_dat['required'] === 'true')) {
                 $changes['required'][$original_name] = $new_required;
             }
-            if ($original_dat == null || $new_unique !== ($original_dat['unique'] === 'true')) {
+            if ($original_dat != null && $new_unique !== ($original_dat['unique'] === 'true')) {
                 $changes['unique'][$original_name] = $new_unique;
             }
-            if ($original_dat == null || strpos($original_dat['type'], $new_type) === false) {
+            if ($original_dat != null && strpos($original_dat['type'], $new_type) === false) {
                 if ($new_type == 'fk') $new_type = $update_dat["foreignKey"]; // if change to FK, store ref instead
                 $changes['type'][$original_name] = $new_type;
             }
-            if ($original_dat == null || ($new_length > 0 && $new_length !== intval($original_dat['length']))) {
+            if ($original_dat != null && ($new_length > 0 && $new_length !== intval($original_dat['length']))) {
                 $changes['length'][$original_name] = $new_length;
             }
 
@@ -1225,24 +1235,50 @@ function save_table( $ajax_data ) {
     }
 
 
+    // check if new fields are ok
+    if (count($new_cols) > 0) {
+
+        $new_fields = $field_list; // list of fields in table
+        $sql_fields = []; // sql command for each field, concat for full sql statement
+        $bindings = []; // PDO bindings for default values
+        $history_fields = []; // column name and type for history table
+
+        foreach($new_cols as $col_name => $col_dat) {
+            $check = validate_field($col_dat, $new_fields);
+            if (is_array($check)) {
+                $new_sql_fields[] = $check[0];
+                $new_history_fields[] = $check[1];
+                $new_bindings = array_merge($bindings, $check[2]);
+                $new_fields = $check[3];
+            } else {
+                return $check;
+            }
+        }
+    }
+
+
     // if we get this far, table is ok to change
     // construct SQL for changes to table
+    // loop through current visible fields first
+    // to generate SQL
     $sql_parts = [];
     $i = 0;
     $bindings = [];
     foreach ($db->get_visible_fields($original_table) as $field) {
         $sql_tmp = "";
-        $to_update = false;
+        $to_update = false; // true if field needs a change
         $comment = $db->get_comment($original_table, $field);
-        foreach($changes as $change => $change_dat) {
+        foreach($changes as $change => $change_dat) { // check changes for current visible field
+
             if (in_array($field, array_keys($change_dat))) {
+
                 $change_val = $change_dat[$field];
                 if ($change == 'name') {
                     $name_safe = str_replace(' ', '_', $change_val);
                     $comment['name'] = $change_val;
                     $sql_tmp .= "`$name_safe` "; // don't need to prepare since regex checked characters already
-                    if (!in_array($field, array_keys($changes['type'])) || !in_array($field, array_keys($changes['length']))) { // if no change to type,length manually add column type
-                        $type = $original_dat[$field]['type'];
+                    if (!in_array($field, array_keys($changes['type'])) || !in_array($field, array_keys($changes['length']))) { // if no change to type/length manually add column type
+                        $type = $original_data[$field]['type'];
                         $sql_tmp .= "$type ";
                     }
                     $to_update = true;
@@ -1297,16 +1333,17 @@ function save_table( $ajax_data ) {
     if (!$no_changes) $sql_table = "ALTER TABLE `$original_table` CHANGE COLUMN " . implode(', ', $sql_parts) . "; ";
 
     // if removing columns
-    if (count($delete_cols) > 0) $sql_table .= "ALTER TABLE `$original_table` DROP COLUMN `". implode('`, DROP COLUMN `', $delete_cols) . "`;"; 
+    if (count($delete_cols) > 0) $sql_table .= "ALTER TABLE `$original_table` DROP COLUMN `". implode('`, DROP COLUMN `', $delete_cols) . "`; "; 
 
     // if adding columns
-    // XXX need to validate new field info & construct SQL
+    if (count($new_cols) > 0) {
+        $sql_table .= "ALTER TABLE `$original_table` ADD " . implode(', ADD', $new_sql_fields) . "; ";
+        $bindings = array_merge($bindings, $new_bindings);
+    }
 
-    // if renaming table
+    // if renaming table, do it last
     if ($table_name_change !== false) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
 
-
-    return json_encode(array("msg" => '.', "status" => true, "hide" => true, 'dat'=>$dat, 'changes'=>$changes, 'del'=>$delete_cols, 'new'=>$new_cols, 'sql'=>$sql_table));
 
     $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
 
@@ -1653,13 +1690,13 @@ function add_table_to_db( $ajax_data ) {
 
     // make sure we have everything
     if ( isset( $data['table_name'] ) && !empty( $data['table_name'] ) ) {
-        $table = $data['table_name'];
+        $table = $data['table_name']['update'];
     } else {
         return json_encode(array("msg" => "Table name cannot be empty.", "status" => false, "hide" => false)); 
     }
 
     // validate table name
-    $check = validate_name( $table, $db->get_all_tables() );
+    $check = validate_name( $table, $db->get_all_tables(), 'Table' );
     if ( $check !== true ) {
         return $check;
     }
@@ -1667,114 +1704,15 @@ function add_table_to_db( $ajax_data ) {
     // check field names for errors
     for( $i = 1; $i<=$field_num; $i++ ) {
 
-        $comment = null; // clear it
-        $comment['name'] = $data['name-' . $i];
-        $field_name = str_replace(' ', '_', $data['name-' . $i]); // replace spaces with _ to make parepared statements easier
-        $field_type = $data['type-' . $i];
-        $field_current = isset($data['currentDate-' . $i]) ? $data['currentDate-' . $i] : false;
-        $field_required = isset($data['required-' . $i]) ? $data['required-' . $i] : false;
-        $field_unique = isset($data['unique-' . $i]) ? $data['unique-' . $i] : false;
-        $field_long_string = isset($data["longString-$i"]) ? true : false;
-        $field_description = isset($data["description-$i"]) ? $data["description-$i"] : false;
-        if ( isset( $data["default-$i"] ) && $data["default-$i"] !== "" ) {
-            $field_default = $data["default-$i"];
-            if ( $field_default === 'true' ) $field_default = true; // cant get AJAX to send as boolean
+        $check = validate_field($data["field-$i"]['update'], $fields);
+        if (is_array($check)) {
+            $sql_fields[] = $check[0];
+            $history_fields[] = $check[1];
+            $bindings = array_merge($bindings, $check[2]);
+            $fields = $check[3];
         } else {
-            $field_default = false;
-        }
-
-
-        // validate field name
-        $check = validate_name( $field_name, $fields, 'Field' );
-        if ( $check !== true ) {
             return $check;
         }
-
-        // ensure default field matches field type
-        if ( $field_default && count( $field_default) > 0 && is_string( $field_default ) ) {
-            $check = validate_field_value( $field_type, $field_default );
-            if ( $check !== true ) {
-                return $check;
-            }
-        }
-
-        $fields[] = $field_name;
-
-
-        // date field (as opposed to datetime) 
-        // type cannot have default current_date (per SQL),
-        // so we change the type to timestamp
-        // and leave a note in the comment field
-        $is_fk = false;
-        if ( $field_type == 'date' ) {
-            $field_type = 'datetime';
-            $comment['column_format'] = 'date';
-        } elseif ($field_type == 'fk') { // if FK, set type the same as reference
-            $field_default = false; // foreign key cannot have a default value
-            $is_fk = true;
-
-            $fk = explode('.', $data['foreignKey-' . $i]); // table_name.col of foreign key
-            $fk_table = $fk[0];
-            $fk_col = $fk[1];
-            $field_class = $db->get_field($fk_table, $fk_col);
-
-            if ($field_class) {
-                $field_type = $field_class->get_type();
-            } else {
-                if (DEBUG) {
-                    return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "log"=>array($fk_table, $fk_col, $field_class), "hide" => false));
-                } else {
-                    return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "hide" => false));
-                }
-            }
-        }
-
-
-        // set field type
-        $sql_str = ''; // sql statement for this field, appended to sql_fields
-        if ($field_type == 'int') {
-            $sql_str = "`$field_name` int(32)";
-        } else if ($field_type == 'varchar') {
-            // limit varchar length to 255 unless users specifies long version
-            // a unique field will create an index which is limited to 767 bytes (255 * 3 if utf8) 
-            $sql_str = "`$field_name` varchar(255)";
-            if ( $field_long_string ) { 
-                $sql_str = "`$field_name` varchar(4096)";
-            }
-        } else {
-            $sql_str = "`$field_name` $field_type";
-        }
-        $history_fields[] = $sql_str; // only need field name and type for history table
-
-        // set NOT NULL if required
-        if ( $field_required) $sql_str .= " NOT NULL";
-
-        // set default, will be executed as a prepared statement
-        if ( $field_default)  {
-            if ( $field_type == 'datetime' ) {
-                $sql_str .= " DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
-            } else {
-                $bindings["default$i"] = $field_default;
-                $sql_str .= " DEFAULT :default$i"; // binding
-            }
-        }
-
-        // set unique
-        if ( $field_unique ) $sql_str .= " UNIQUE";
-  
-        // add comment
-        $comment['description'] = $field_description;
-        $bindings["comment$i"] = json_encode($comment);
-        $sql_str .= " COMMENT :comment$i";
-
-        // add index if not long string and not unique
-        if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
-
-        // if FK type was requested, add the constraint
-        if ($is_fk) $sql_str .= sprintf(", FOREIGN KEY fk_%s_%s(`%s`) REFERENCES `%s`(`%s`) ON DELETE RESTRICT ON UPDATE CASCADE", substr(md5(rand()), 0, 4), $field_name, $field_name, $fk_table, $fk_col);
-
-        // combine sql for field
-        $sql_fields[] = $sql_str;
  
     }
 
@@ -1822,6 +1760,134 @@ function add_table_to_db( $ajax_data ) {
 
 }
 
+
+
+/*
+ * Will check whether the given data is valide in order
+ * to create a column in a table by validating:
+ * - name length
+ * - name uniqueness
+ * - name characters used
+ *
+ * If field name is valide, function will generate all
+ * the SQL parts needed to create the field
+ *
+ * @params
+ * (assoc arr) $dat - form data for field setup with keys
+ *  like name, type, description, etc
+ * (arr) $fields - already validated fields
+ *
+ * @returns
+ * (arr) [$sql_str, $history_field, $bindings, $fields]
+ * $sql_str - SQL string needed to generated field
+ * $history_field - SQL string needed to generate history counterpart
+ * $bindings - PDO bindings for field
+ * $fields - list of validated fields
+*/
+function validate_field($dat, $fields) {
+
+    $bindings = []; // PDO bindings for default values
+    $i = count($fields) + 1;
+
+    $comment['name'] = $dat['name'];
+    $field_name = str_replace(' ', '_', $dat['name']); // replace spaces with _ to make parepared statements easier
+    $field_type = $dat['type'];
+    $field_current = isset($dat['currentDate']) ? $dat['currentDate'] : false;
+    $field_required = isset($dat['required']) ? $dat['required'] : false;
+    $field_unique = isset($dat['unique']) ? $dat['unique'] : false;
+    $field_long_string = isset($dat["longString"]) ? true : false;
+    $field_description = isset($dat["description"]) ? $dat["description"] : false;
+    if ( isset( $dat["default"] ) && $dat["default"] !== "" ) {
+        $field_default = $dat["default"];
+        if ( $field_default === 'true' ) $field_default = true; // cant get AJAX to send as boolean
+    } else {
+        $field_default = false;
+    }
+
+    // validate field name
+    $check = validate_name( $field_name, $fields, 'Field' );
+    if ( $check !== true ) {
+        return $check;
+    }
+    // ensure default field matches field type
+    if ( $field_default && count( $field_default) > 0 && is_string( $field_default ) ) {
+        $check = validate_field_value( $field_type, $field_default );
+        if ( $check !== true ) {
+            return $check;
+        }
+    }
+    $fields[] = $field_name;
+
+    // date field (as opposed to datetime) 
+    // type cannot have default current_date (per SQL),
+    // so we change the type to timestamp
+    // and leave a note in the comment field
+    $is_fk = false;
+    if ( $field_type == 'date' ) {
+        $field_type = 'datetime';
+        $comment['column_format'] = 'date';
+    } elseif ($field_type == 'fk') { // if FK, set type the same as reference
+        $field_default = false; // foreign key cannot have a default value
+        $is_fk = true;
+        $fk = explode('.', $dat['foreignKey']); // table_name.col of foreign key
+        $fk_table = $fk[0];
+        $fk_col = $fk[1];
+        $field_class = $db->get_field($fk_table, $fk_col);
+        if ($field_class) {
+            $field_type = $field_class->get_type();
+        } else {
+            if (DEBUG) {
+                return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "log"=>array($fk_table, $fk_col, $field_class), "hide" => false));
+            } else {
+                return json_encode(array("msg"=>"There was an error, please try again.", "status"=>false, "hide" => false));
+            }
+        }
+    }
+
+    // set field type
+    $sql_str = ''; // sql statement for this field, appended to sql_fields
+    if ($field_type == 'int') {
+        $sql_str = "`$field_name` int(32)";
+    } else if ($field_type == 'varchar') {
+        // limit varchar length to 255 unless users specifies long version
+        // a unique field will create an index which is limited to 767 bytes (255 * 3 if utf8) 
+        $sql_str = "`$field_name` varchar(255)";
+        if ( $field_long_string ) { 
+            $sql_str = "`$field_name` varchar(4096)";
+        }
+    } else {
+        $sql_str = "`$field_name` $field_type";
+    }
+
+    $history_field = $sql_str; // only need field name and type for history table
+    // set NOT NULL if required
+    if ( $field_required) $sql_str .= " NOT NULL";
+    // set default, will be executed as a prepared statement
+    if ( $field_default)  {
+        if ( $field_type == 'datetime' ) {
+            $sql_str .= " DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
+        } else {
+            $bindings["default$i"] = $field_default;
+            $sql_str .= " DEFAULT :default$i"; // binding
+        }
+    }
+
+    // set unique
+    if ( $field_unique ) $sql_str .= " UNIQUE";
+
+    // add comment
+    $comment['description'] = $field_description;
+    $bindings["comment$i"] = json_encode($comment);
+    $sql_str .= " COMMENT :comment$i";
+
+    // add index if not long string and not unique
+    if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
+
+    // if FK type was requested, add the constraint
+    if ($is_fk) $sql_str .= sprintf(", FOREIGN KEY fk_%s_%s(`%s`) REFERENCES `%s`(`%s`) ON DELETE RESTRICT ON UPDATE CASCADE", substr(md5(rand()), 0, 4), $field_name, $field_name, $fk_table, $fk_col);
+
+    return [$sql_str, $history_field, $bindings, $fields];
+}
 
 
 
@@ -2088,7 +2154,7 @@ function validate_name( $name, $names, $type='Table' ) {
 
     // ensure table name is only allowed letters
     if ( !preg_match( '/^[a-z0-9\-_ ]+$/i', $name ) ) {
-        return json_encode(array("msg" => "$type name may only include letters, numbers, hypens, spaces and underscores, please choose another.", "status" => false, "hide" => false)); 
+        return json_encode(array("msg" => "$type name <code>$name</code> may only include letters, numbers, hypens, spaces and underscores, please choose another.", "status" => false, "hide" => false)); 
     }
 
     // table name can only be max 64 chars
