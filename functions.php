@@ -1102,12 +1102,9 @@ function save_table( $ajax_data ) {
 
     // check table name change
     $current_tables = $db->get_data_tables();
-    $table_name_change = false;
     if ($new_table !== $original_table) {
         if (in_array($new_table, $current_tables)) {
             return json_encode(array("msg" => "The table name <code>$new_table</code> already exists, please choose one that isn't in the following list: <code>" . implode(',', $current_tables) . "</code>", "status" => false, "hide" => false));
-        } else {
-            $table_name_change = $new_table;
         }
     }
 
@@ -1131,6 +1128,8 @@ function save_table( $ajax_data ) {
                 $new_cols[$original_name] = $update_dat;
             }
 
+            $original_data[$original_name] = $original_dat; // if changing name, will need all other field info
+
             $new_name = $update_dat["name"]; // store name as given, will need to replace spaces with '_'
             $new_default = $update_dat["default"];
             $new_description = $update_dat["description"];
@@ -1149,7 +1148,6 @@ function save_table( $ajax_data ) {
             // check new data against original
             if ($original_dat != null && $new_name !== $original_dat['comment']['name']) {
                 $changes['name'][$original_name] = $new_name;
-                $original_data[$original_name] = $original_dat; // if changing name, will need all other field info
                 $field_list[] = $new_name;
             } else {
                 if ($original_dat == null) { // if new field
@@ -1197,40 +1195,49 @@ function save_table( $ajax_data ) {
 
 
     // check if required changes are ok
-    if (count(array_values($changes['required'])) && in_array($field, $original_fields)) {
+    if (count(array_values($changes['required']))) {
         foreach($changes['required'] as $field => $field_change) {
-            $check = check_field_required_change($db_conn, $original_table, $field, $field_change);
-            if ($check !== true) return $check;
+            if (in_array($field, $original_fields)) {
+                $check = check_field_required_change($db_conn, $original_table, $field, $field_change);
+                if ($check !== true) return $check;
+            }
         }
     }
 
     // check if unique changes are ok
-    if (count(array_values($changes['unique'])) && in_array($field, $original_fields)) {
+    if (count(array_values($changes['unique']))) {
         foreach($changes['unique'] as $field => $field_change) {
-            $check = check_field_unique_change($db_conn, $original_table, $field, $field_change);
-            if ($check !== true) return $check;
+            if (in_array($field, $original_fields)) {
+                $check = check_field_unique_change($db_conn, $original_table, $field, $field_change);
+                if ($check !== true) return $check;
+            }
         }
     }
 
     // check if type changes are ok
-    if (count(array_values($changes['type'])) && in_array($field, $original_fields)) {
+    if (count(array_values($changes['type']))) {
         foreach($changes['type'] as $field => $field_change) {
-            $check = check_field_type_change($db_conn, $original_table, $field, $field_change);
-            if ($check !== true) return $check;
+            if (in_array($field, $original_fields)) {
+                $check = check_field_type_change($db_conn, $original_table, $field, $field_change);
+                if ($check !== true) return $check;
+            }
         }
     }
 
     // check that fields names are unique
-    if (count(array_values($changes['name'])) && in_array($field, $original_fields)) {
+    if (count(array_values($changes['name']))) {
+        //if (in_array($field, $original_fields)) {
         $check = check_field_name_change($original_fields, $changes['name']);
         if ($check !== true) return $check;
     }
     
     // check that str length change is ok
-    if (count(array_values($changes['length'])) && in_array($field, $original_fields)) {
+    if (count(array_values($changes['length']))) {
         foreach($changes['length'] as $field => $field_change) {
-            $check = check_field_length_change($db_conn, $original_table, $field, $field_change);
-            if ($check !== true) return $check;
+            if (in_array($field, $original_fields)) {
+                $check = check_field_length_change($db_conn, $original_table, $field, $field_change);
+                if ($check !== true) return $check;
+            }
         }
     }
 
@@ -1240,7 +1247,6 @@ function save_table( $ajax_data ) {
 
         $new_fields = $field_list; // list of fields in table
         $sql_fields = []; // sql command for each field, concat for full sql statement
-        $bindings = []; // PDO bindings for default values
         $history_fields = []; // column name and type for history table
 
         foreach($new_cols as $col_name => $col_dat) {
@@ -1248,7 +1254,7 @@ function save_table( $ajax_data ) {
             if (is_array($check)) {
                 $new_sql_fields[] = $check[0];
                 $new_history_fields[] = $check[1];
-                $new_bindings = array_merge($bindings, $check[2]);
+                $bindings = array_merge($bindings, $check[2]);
                 $new_fields = $check[3];
             } else {
                 return $check;
@@ -1262,26 +1268,33 @@ function save_table( $ajax_data ) {
     // loop through current visible fields first
     // to generate SQL
     $sql_parts = [];
+    $sql_parts_history = [];
     $i = 0;
     $bindings = [];
     foreach ($db->get_visible_fields($original_table) as $field) {
         $sql_tmp = "";
+        $sql_tmp_history = '';
         $to_update = false; // true if field needs a change
+        $name_change = false; // if field name is changed, will be name to be changed to; we keep track of this so that we can do all SQL calls with "CHANGE COLUMN" instead of MODIFY/ALTER
         $comment = $db->get_comment($original_table, $field);
         foreach($changes as $change => $change_dat) { // check changes for current visible field
 
             if (in_array($field, array_keys($change_dat))) {
+
+                $field_type = $original_data[$field]['type']; // will need original field type if e.g. changing name, NOT NULL, etc
 
                 $change_val = $change_dat[$field];
                 if ($change == 'name') {
                     $name_safe = str_replace(' ', '_', $change_val);
                     $comment['name'] = $change_val;
                     $sql_tmp .= "`$name_safe` "; // don't need to prepare since regex checked characters already
+                    $sql_tmp_history .= "`$name_safe` ";
                     if (!in_array($field, array_keys($changes['type'])) || !in_array($field, array_keys($changes['length']))) { // if no change to type/length manually add column type
-                        $type = $original_data[$field]['type'];
-                        $sql_tmp .= "$type ";
+                        $sql_tmp .= "$field_type ";
+                        $sql_tmp_history .= "$field_type ";
                     }
                     $to_update = true;
+                    $name_change = $name_safe;
                     $i++;
                 } else if ($change == 'default') {
                     $sql_tmp .= "DEFAULT :default ";
@@ -1292,8 +1305,8 @@ function save_table( $ajax_data ) {
                     $comment['description'] = $change_val;
                     $to_update = true;
                     $i++;
-                } else if ($change == 'required' && $change_val) {
-                    $sql_tmp .= "NOT NULL ";
+                } else if ($change == 'required' && isset($change_val)) {
+                    $change_val ? $sql_tmp .= "$field_type NOT NULL " : $sql_tmp .= "$field_type NULL ";
                     $to_update = true;
                     $i++;
                 } else if ($change == 'type') {
@@ -1305,10 +1318,11 @@ function save_table( $ajax_data ) {
                         $comment['column_format'] = 'date';
                     }
                     $sql_tmp .= "$change_val ";
+                    $sql_tmp_history .= "$change_val ";
                     $to_update = true;
                     $i++;
-                } else if ($change == 'unique' && $change_val) {
-                    $sql_tmp .= " UNIQUE ";
+                } else if ($change == 'unique' && isset($change_val)) {
+                    $change_val ? $sql_tmp .= " UNIQUE " : $sql_tmp .= ""; // XXX have to handle case of removing unique constraint, have to drop index...
                     $to_update = true;
                     $i++;
                 } else if ($change == 'length') { // if length change, guaranteed to be varchar
@@ -1323,35 +1337,26 @@ function save_table( $ajax_data ) {
         if ($to_update) {
             $bindings["comment$i"] = json_encode($comment);
             $sql_tmp .= "COMMENT :comment$i";
-            $sql_parts[] = "`$field` $sql_tmp";
+    
+            // if no change to the field name, we use the original name twice so that we can use the "CHANGE COLUMN" function (instead of ALTER/MODIFY)
+            $name_change !== false ? $sql_parts[] = "`$field` $sql_tmp" : $sql_parts[] = "`$field` `$field` $sql_tmp";
+            $name_change !== false ? $sql_parts_history[] = "`$field` $sql_tmp_history" : $sql_parts_history[] = "`$field` `$field` $sql_tmp_history";
         }
     }
 
-    // history table!
 
-    // if at least one field is being updated
-    if (!$no_changes) $sql_table = "ALTER TABLE `$original_table` CHANGE COLUMN " . implode(', ', $sql_parts) . "; ";
+    $stmt_table = edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table);
 
-    // if removing columns
-    if (count($delete_cols) > 0) $sql_table .= "ALTER TABLE `$original_table` DROP COLUMN `". implode('`, DROP COLUMN `', $delete_cols) . "`; "; 
-
-    // if adding columns
-    if (count($new_cols) > 0) {
-        $sql_table .= "ALTER TABLE `$original_table` ADD " . implode(', ADD', $new_sql_fields) . "; ";
-        $bindings = array_merge($bindings, $new_bindings);
-    }
-
-    // if renaming table, do it last
-    if ($table_name_change !== false) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
-
-
-    $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
 
     // Execute
     if ( $stmt_table->execute() !== false ) {
         refresh_db_setup(); // update DB class
 
-        return json_encode(array("msg" => "Table properly updated!", "status" => true, "hide" => true ));
+        $stmt_table = edit_table_sql($db_conn, $original_table . "_history", $sql_parts_history, $delete_cols, $no_changes, $new_sql_fields, null, $new_table);
+
+        $db_conn->exec($stmt_table);
+
+        return json_encode(array("msg" => "Table properly updated!", "status" => true, "hide" => true, "log"=>$sql_table ));
 
     } else { // if error
 
@@ -1362,13 +1367,47 @@ function save_table( $ajax_data ) {
         }
     }
 
-
-
-
-
 }
 
 
+/*
+ * Generate a prepared SQL statment for editing a table including
+ * edits to current fields, deletion of fields, and adding of new fields
+ *
+ * @params:
+ * (PDO obj) $db_conn - PDO connection to DB
+ * (str) $original_table - name of original table
+ * (arr) $sql_parts - list of sql snippets for adjusting each column
+ * (arr) $delete_cols - list of column names to delete
+ * (bool) $no_changes - true if not changes to current fields in table (exlcudes adding new tables)
+ * (arr) $new_sql_fields - same as $sql_parts but for the newly added fields
+ * (obj) $bindings - PDO bindings for prepared statement
+ * (str) $new_table - (optional) name of new table if changing name
+ * 
+*/
+
+function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table=NULL) {
+
+    // if at least one field is being updated
+    if (!$no_changes) $sql_table = "ALTER TABLE `$original_table` CHANGE COLUMN " . implode(', ', $sql_parts) . "; ";
+
+    // if removing columns
+    if (count($delete_cols) > 0) $sql_table .= "ALTER TABLE `$original_table` DROP COLUMN `". implode('`, DROP COLUMN `', $delete_cols) . "`; "; 
+
+    // if adding columns
+    if (count($new_cols) > 0) {
+        $sql_table .= "ALTER TABLE `$original_table` ADD " . implode(', ADD', $new_sql_fields) . "; ";
+    }
+
+    // if renaming table, do it last
+    if ($new_table !== $original_table) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
+
+    if ($bindings !== null) {
+        return bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
+    } else {
+        return $sql_table;
+    }
+}
 
 
 /**
@@ -1573,7 +1612,7 @@ function check_field_unique_change($db_conn, $table, $field, $unique) {
         // check that every value in field is unique
         $q = $db_conn->query("SELECT count(*) FROM (SELECT `$field` FROM `$table` GROUP BY `$field` HAVING count(*) > 1) a"); // will return a single number representing the number of field values that are not unique
         $num = intval($q->fetchColumn());
-        if ($num > 0) return json_encode(array("msg" => "You cannot change the field <code>$field</code> to unique because its current values are not unique; update these values before updating this field.", "status" => false, "hide" => false));
+        if ($num > 0) return json_encode(array("msg" => "You cannot change the field <code>$field</code> to be unique because its current values are not unique; update these values before updating this field.", "status" => false, "hide" => false));
     }
 
     return true;
@@ -1588,7 +1627,7 @@ function check_field_unique_change($db_conn, $table, $field, $unique) {
  * be required - in this case, this will check whether
  * any of the values for the field are currently empty.
  * If so, field cannot be made required.
- *
+ * 
  * @param:
  * (pdo) $db_conn - connection to database
  * (str) $table - name of table being modified
@@ -1606,9 +1645,9 @@ function check_field_required_change($db_conn, $table, $field, $required) {
     if ($required) { // if changing to required
 
         // check that no item is empty in table
-        $q = $db_conn->query("SELECT count(`$field`) FROM `$table` WHERE `$field` is not null");
+        $q = $db_conn->query("SELECT count(`$field`) FROM `$table` WHERE `$field` is null");
         $num = intval($q->fetchColumn());
-        if ($num > 0) return json_encode(array("msg" => "You cannot change the field <code>$field</code> to required because it currently has empty cells; add values to these cells before updating this field.", "status" => false, "hide" => false));
+        if ($num > 0) return json_encode(array("msg" => "$num You cannot change the field <code>$field</code> to required because it currently has empty cells; add values to these cells before updating this field.", "status" => false, "hide" => false));
 
     }
 

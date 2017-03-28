@@ -1187,8 +1187,6 @@ function saveTable( event ) {
     event.preventDefault(); // cancel form submission
     jQuery('#submit_handle').click(); // needed to validate form
 
-    //console.log(getTableSetupForm('form', db));
-
     // remove hidden _UID from field list
     var visibleFields = db.fields;
     if (visibleFields.indexOf('_UID') > -1) visibleFields.splice(visibleFields.indexOf('_UID'), 1);
@@ -1206,6 +1204,8 @@ function saveTable( event ) {
         // send data to server
         doAJAX(data, function() {
             showMsg(ajaxResponse);
+
+            // need to update the DB var here!
             if (DEBUG) console.log(ajaxResponse);
         });
 
