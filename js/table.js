@@ -1205,7 +1205,9 @@ function saveTable( event ) {
         doAJAX(data, function() {
             showMsg(ajaxResponse);
 
-            // need to update the DB var here!
+            // update global var db with new DB setup
+            if ('db' in ajaxResponse) db = JSON.parse(ajaxResponse.db)
+
             if (DEBUG) console.log(ajaxResponse);
         });
 
@@ -1294,7 +1296,7 @@ function deleteTable(event, tableName) {
 
 
 // hide/show divs based on what user selects for field type
-function selectChange(id){
+function selectChange(id, fk_ref){
     var val = jQuery("#type-" + id).val()
 
     // reset input fields that were automatically set in case of FK
@@ -1304,7 +1306,7 @@ function selectChange(id){
     var hidden = jQuery("#hiddenType-" + id);
     if (val == 'fk') {
         var html = '<p>Please choose a table and field that you\'d like to use as a reference for your foreign key; note that only fields that are set to be unique will be found in this list.</p>';
-        html += getFKchoices(id);
+        html += getFKchoices(id, fk_ref);
     } else if (val == 'date') {
         html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
         html +='<label class="checkbox-inline"><input type="checkbox" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
@@ -1341,11 +1343,13 @@ Parameters:
 - id : int (optional)
        if specified, select will get the name 'foreignKey-#',
        otherwise name will be 'foreignKey'
+- fk_ref : str (optional)
+           table.field to set select to for FK reference
 Returns:
 --------
 - full html for select
 */
-function getFKchoices(id=null) {
+function getFKchoices(id=null, fk_ref=null) {
 
     // global var db is set in the add_table WP template
 
@@ -1369,6 +1373,7 @@ function getFKchoices(id=null) {
     }
     html += '</select>';
 
+    if (typeof fk_ref !== undefined && fk_ref !== null) jQuery("select[name=" + name + "]").val(fk_ref);
 
     // a bit hacky, but if the select is empty, remove it and display a message
     // this can be improved by updating db.class.php so that all the parent field
@@ -1439,8 +1444,16 @@ function fillEditTableForm(db) {
 
             // set type
             var type = dat.type;
-            if (type === 'varchar(255)') {
-                jQuery("select[name='type-" + (count + 1) + "']").val('varchar');
+            if (type.indexOf('varchar') > -1) { // could be string or FK
+                if (dat.is_fk) { // if field is a foreign key
+                    jQuery("select[name='type-" + (count + 1) + "']").val('fk');
+                    selectChange(count + 1, dat.fk_ref); // manually fire with proper FK ref
+                } else { // if standard string (short or long)
+                    jQuery("select[name='type-" + (count + 1) + "']").val('varchar');
+                    if (dat.length > 255) { // if long string
+                        jQuery("input[name='longString-" + (count + 1) + "']").prop('checked',unique);
+                    } 
+                }
             } else if (type === 'int(32)') {
                 jQuery("select[name='type-" + (count + 1) + "']").val('int');
             } else if (type === 'float') {
