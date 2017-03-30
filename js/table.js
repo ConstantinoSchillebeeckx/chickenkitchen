@@ -391,9 +391,15 @@ function showMsg(dat, sel) {
 
     jQuery('#alertDiv').remove(); // remove any alerts already present
 
-    var type = dat.status ? 'success' : 'danger';
-    var msg = dat.msg;
-    var hide = dat.hide; // true will auto-remove the message, false will keep message on scree
+    if (typeof dat.msg !== 'undefined') {
+        var type = dat.status ? 'success' : 'danger';
+        var msg = dat.msg;
+        var hide = dat.hide; // true will auto-remove the message, false will keep message on scree
+    } else {
+        var type = 'danger';
+        var msg = "An unknown error occurred, please try again.";
+        var hide = false;
+    }
     var alertDiv = '<div id="alertDiv" class="alert alert-' + type + ' alert-dismissible" role="alert"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' + msg + '</div>';
 
     jQuery( alertDiv ).prependTo( sel );

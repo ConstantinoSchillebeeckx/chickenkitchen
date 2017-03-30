@@ -1110,7 +1110,7 @@ function save_table( $ajax_data ) {
 
 
     // go through each column and collect all changes
-    $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => [], 'length' =>[]]; // changes to current fields
+    $changes = ['name' => [], 'default' => [], 'description' => [], 'required' => [], 'type' => [], 'unique' => [], 'length' =>[], 'fk' => []]; // changes to current fields
     $delete_cols = $original_fields; // list of fields to delete
     $new_cols = []; // list of newly added columns with key as name and value as assoc arr of new data (to be used with validate_field())
     $original_data = []; // assoc array of original data, key is field name, value is data
@@ -1136,6 +1136,7 @@ function save_table( $ajax_data ) {
             $new_required = isset($update_dat["required"]) ? true : false;
             $new_unique = isset($update_dat["unique"]) ? true : false;
             $new_type = $update_dat["type"]; // type comes in as varchar, float, date, varchar, int, datetime, fk
+            $new_fk_ref = $update_dat['foreignKey'];
             $new_length = false;
             if ($update_dat["type"] == 'varchar') {
                 if ($update_dat["longString"] === "true") {
@@ -1168,9 +1169,15 @@ function save_table( $ajax_data ) {
             if ($original_dat != null && $new_unique !== ($original_dat['unique'] === 'true')) {
                 $changes['unique'][$original_name] = $new_unique;
             }
-            if ($original_dat != null && strpos($original_dat['type'], $new_type) === false) {
-                if ($new_type == 'fk') $new_type = ['fk' => $update_dat["foreignKey"]]; // if change to FK, store ref instead
-                $changes['type'][$original_name] = $new_type;
+            if ($original_dat != null && (strpos($original_dat['type'], $new_type) === false || ($new_type != 'fk' && $original_dat['is_fk'] === 'true') || (is_string($new_fk_ref) && $new_fk_ref !== $original_dat['fk_ref'] ))) {
+                // fk comes in as 'fk' type however is stored as varchar, so original and update may not match even if there is no change
+                if (($new_type == 'fk' && $original_dat['is_fk'] === 'false') || (is_string($new_fk_ref) && $new_fk_ref !== $original_dat['fk_ref'])) { // fk being added or changed
+                    $changes['fk'][$original_name] = $update_dat["foreignKey"]; // if change to FK, store ref instead
+                    if (strpos('varchar', $original_dat['type']) !== false) $changes['type'][$original_name] = $new_type;
+                } else if ($new_type != 'fk' && $original_dat['is_fk'] === 'true') {
+                    $changes['fk'][$original_name] = false; // fk removed
+                    if (strpos($original_dat['type'], $new_type) === false) $changes['type'][$original_name] = $new_type;
+                }
             }
             if ($original_dat != null && ($new_length > 0 && $new_length !== intval($original_dat['length']))) {
                 $changes['length'][$original_name] = $new_length;
@@ -1326,14 +1333,21 @@ function save_table( $ajax_data ) {
                         $i++;
                         $sql_tmp .= "$change_val ";
                         $sql_tmp_history .= "$change_val ";
-                    } else if (is_array($change_val) && array_keys($change_val)[0] == 'fk') { // if changing to FK, need to add index manually
-                        unset($changes['type'][$field]); // remove from $changes since we take care of it manually with $index_parts
-                        $ref_parts = explode('.', $change_val['fk']);
-                        $index_parts[] = sprintf("ADD CONSTRAINT FOREIGN KEY fk_%s_%s(`%s`) REFERENCES `%s`(`%s`) ON DELETE RESTRICT ON UPDATE CASCADE", substr(md5(rand()), 0, 4), $field, $field, $ref_parts[0], $ref_parts[1]);
-
-                        // XXX what about case of removing a FK?
                     }
-
+                } else if ($change == 'fk') {
+                    if ($change_val === false) { // removing fk
+                        $ref_parts = explode('.', $original_data[$field]['fk_ref']);
+                        $ref_table = $ref_parts[0];
+                        $fk_name = "fk_" . $field . "_" . $ref_table;
+                        $index_parts[] = "DROP FOREIGN KEY `$fk_name` ";
+                    } else if (is_string($change_val)) { // adding fk
+                        $ref_parts = explode('.', $change_val);
+                        $ref_table = $ref_parts[0];
+                        $ref_field = $ref_parts[1];
+                        $fk_name = "fk_" . $field . "_" . $ref_table;
+                        $index_parts[] = "ADD CONSTRAINT `$fk_name` FOREIGN KEY (`$field`) REFERENCES `$ref_table`(`$ref_field`) ON DELETE RESTRICT ON UPDATE CASCADE";
+                    }
+                    unset($changes['fk'][$field]); // remove from $changes since we take care of it manually with $index_parts
                 } else if ($change == 'unique' && isset($change_val)) {
                     if ($change_val) {
                         $index_parts[] = "ADD CONSTRAINT `$field` UNIQUE (`$field`)";
@@ -1964,7 +1978,10 @@ function validate_field($db, $dat, $fields) {
     if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
 
     // if FK type was requested, add the constraint
-    if ($is_fk) $sql_str .= sprintf(", FOREIGN KEY fk_%s_%s(`%s`) REFERENCES `%s`(`%s`) ON DELETE RESTRICT ON UPDATE CASCADE", substr(md5(rand()), 0, 4), $field_name, $field_name, $fk_table, $fk_col);
+    if ($is_fk) {
+        $fk_name = "fk_" . $field_name . "_" . $fk_table;
+        $sql_str .= ", CONSTRAINT `$fk_name` FOREIGN KEY (`$field_name`) REFERENCES `$fk_table`(`$fk_col`) ON DELETE RESTRICT ON UPDATE CASCADE";
+    }
 
     return [$sql_str, $history_field, $bindings, $fields];
 }

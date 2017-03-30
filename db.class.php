@@ -371,7 +371,7 @@ class Database {
 
     // like get_ref() but only returns non-history tables
     // check if table contains a field that is
-    // referenced by an FK
+    // referenced by an FK (in a table other than itself)
     // if so, return the field name(s) in format [parent field => [ child table, fk col], ]
     public function get_data_ref($table) {
         $history_tables = $this->get_history_tables();
@@ -386,7 +386,7 @@ class Database {
                 $tmp = explode('.', $field_class->get_ref());
                 $child_table = $tmp[0];
                 $fk_field = $tmp[1];
-                if ( !in_array( $child_table, $history_tables ) ) $fks[$field] = [$child_table, $fk_field];
+                if ( !in_array( $child_table, $history_tables ) && $child_table != $table ) $fks[$field] = [$child_table, $fk_field];
             }
         }
 
