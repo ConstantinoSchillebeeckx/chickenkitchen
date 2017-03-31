@@ -1328,6 +1328,9 @@ function selectChange(id, fk_ref){
         html +='<label class="checkbox-inline"><input type="checkbox" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date & time at editing.</label>';
     }
     hidden.html(html);
+
+    // set selected FK reference
+    if (typeof fk_ref !== undefined && fk_ref !== null) jQuery("select[name=foreignKey-" + id + "]").val(fk_ref);
 }
 
 
@@ -1349,13 +1352,11 @@ Parameters:
 - id : int (optional)
        if specified, select will get the name 'foreignKey-#',
        otherwise name will be 'foreignKey'
-- fk_ref : str (optional)
-           table.field to set select to for FK reference
 Returns:
 --------
 - full html for select
 */
-function getFKchoices(id=null, fk_ref=null) {
+function getFKchoices(id=null) {
 
     // global var db is set in the add_table WP template
 
@@ -1379,7 +1380,6 @@ function getFKchoices(id=null, fk_ref=null) {
     }
     html += '</select>';
 
-    if (typeof fk_ref !== undefined && fk_ref !== null) jQuery("select[name=" + name + "]").val(fk_ref);
 
     // a bit hacky, but if the select is empty, remove it and display a message
     // this can be improved by updating db.class.php so that all the parent field

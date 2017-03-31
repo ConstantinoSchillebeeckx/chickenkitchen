@@ -1147,40 +1147,64 @@ function save_table( $ajax_data ) {
             }
 
             // check new data against original
-            if ($original_dat != null && $new_name !== $original_dat['comment']['name']) {
-                $changes['name'][$original_name] = $new_name;
-                $field_list[] = $new_name;
+            if ($original_dat != null) {
+
+                // field name
+                if ($new_name !== $original_dat['comment']['name']) {
+                    $changes['name'][$original_name] = $new_name;
+                    $field_list[] = $new_name;
+                }
+
+                // field default
+                if ($new_default !== $original_dat['default']) {
+                    $changes['default'][$original_name] = $new_default;
+                }
+
+                // field description
+                if ($new_description !== $original_dat['comment']['description']) {
+                    $changes['description'][$original_name] = $new_description;
+                }
+
+                // field required
+                if ($new_required !== ($original_dat['required'] === 'true')) {
+                    $changes['required'][$original_name] = $new_required;
+                }
+
+                // field unique
+                if ($new_unique !== ($original_dat['unique'] === 'true')) {
+                    $changes['unique'][$original_name] = $new_unique;
+                }
+
+                // field type
+                // FK comes in as 'fk' type however the original is stored as varchar, therefore changes could be:
+                // non-str -> str OR str -> non-str
+                // non-fk -> fk 
+                // str (fk type) -> non-fk
+                $original_str = (strpos($original_dat['type'], 'varchar') !== false); // will be true if type was originally an str (or FK)
+                $original_fk = ($original_dat['is_fk'] === 'true'); // will be true if type was originally FK
+                $update_str = (strpos($new_type, 'varchar') !== false); // will be true if new type is str (not FK or other type)
+
+                if (($original_str === false && $update_str === true) || ($original_str === true && $update_str === false && $new_type != 'fk')) {
+                    $changes['type'][$original_name] = $new_type;
+                } else if ($original_fk === false && $new_type == 'fk') { // non-fk -> fk (fk being added)
+                    $changes['fk'][$original_name] = $update_dat["foreignKey"]; // if change to FK, store ref instead
+                    if ($original_str === false) $changes['type'][$original_name] = 'fk'; // only make changes to type if previously not an str
+                } else if ($original_fk === true && $new_type != 'fk') {
+                    $changes['fk'][$original_name] = false; // fk removed
+                    if ($original_str !== $update_str) $changes['type'][$original_name] = $new_type; // only make changes to type if previously not an str
+                }
+
+
+                // field length
+                if ($new_length > 0 && $new_length !== intval($original_dat['length'])) {
+                    $changes['length'][$original_name] = $new_length;
+                }
             } else {
                 if ($original_dat == null) { // if new field
                     // skip, will check when validating new fields
                 } else {
                     $field_list[] = $original_dat['comment']['name'];
                 }
-            }
-            if ($original_dat != null && $new_default !== $original_dat['default']) {
-                $changes['default'][$original_name] = $new_default;
-            }
-            if ($original_dat != null && $new_description !== $original_dat['comment']['description']) {
-                $changes['description'][$original_name] = $new_description;
-            }
-            if ($original_dat != null && $new_required !== ($original_dat['required'] === 'true')) {
-                $changes['required'][$original_name] = $new_required;
-            }
-            if ($original_dat != null && $new_unique !== ($original_dat['unique'] === 'true')) {
-                $changes['unique'][$original_name] = $new_unique;
-            }
-            if ($original_dat != null && (strpos($original_dat['type'], $new_type) === false || ($new_type != 'fk' && $original_dat['is_fk'] === 'true') || (is_string($new_fk_ref) && $new_fk_ref !== $original_dat['fk_ref'] ))) {
-                // fk comes in as 'fk' type however is stored as varchar, so original and update may not match even if there is no change
-                if (($new_type == 'fk' && $original_dat['is_fk'] === 'false') || (is_string($new_fk_ref) && $new_fk_ref !== $original_dat['fk_ref'])) { // fk being added or changed
-                    $changes['fk'][$original_name] = $update_dat["foreignKey"]; // if change to FK, store ref instead
-                    if (strpos('varchar', $original_dat['type']) !== false) $changes['type'][$original_name] = $new_type;
-                } else if ($new_type != 'fk' && $original_dat['is_fk'] === 'true') {
-                    $changes['fk'][$original_name] = false; // fk removed
-                    if (strpos($original_dat['type'], $new_type) === false) $changes['type'][$original_name] = $new_type;
-                }
-            }
-            if ($original_dat != null && ($new_length > 0 && $new_length !== intval($original_dat['length']))) {
-                $changes['length'][$original_name] = $new_length;
             }
 
             // if original field name is part of original fields, remove it from the
@@ -1191,7 +1215,7 @@ function save_table( $ajax_data ) {
         } 
     }
 
-    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes ));
+    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, "orig"=>$original_str, "upd"=>$update_str, 'fk'=>$original_fk ));
 
 
     // ensure something is being updated
@@ -1252,11 +1276,11 @@ function save_table( $ajax_data ) {
 
 
     // check if new fields are ok
+    $bindings = [];
     if (count($new_cols) > 0) {
-
         $new_fields = $field_list; // list of fields in table
-        $sql_fields = []; // sql command for each field, concat for full sql statement
-        $history_fields = []; // column name and type for history table
+        $new_sql_fields = []; // sql command for each field, concat for full sql statement
+        $new_history_fields = []; // column name and type for history table
 
         foreach($new_cols as $col_name => $col_dat) {
             $check = validate_field($db, $col_dat, $new_fields);
@@ -1280,7 +1304,6 @@ function save_table( $ajax_data ) {
     $index_parts = [];
     $sql_parts_history = [];
     $i = 0;
-    $bindings = [];
     foreach ($db->get_visible_fields($original_table) as $field) {
         $sql_tmp = ""; // all the str SQL for modifying current field
         $sql_tmp_history = '';
@@ -1315,7 +1338,7 @@ function save_table( $ajax_data ) {
                     $comment['description'] = $change_val;
                     $to_update = true;
                     $i++;
-                } else if ($change == 'required' && isset($change_val)) {
+                } else if ($change == 'required') {
                     $change_val ? $sql_tmp .= "$field_type NOT NULL " : $sql_tmp .= "$field_type NULL ";
                     $to_update = true;
                     $i++;
@@ -1348,7 +1371,7 @@ function save_table( $ajax_data ) {
                         $index_parts[] = "ADD CONSTRAINT `$fk_name` FOREIGN KEY (`$field`) REFERENCES `$ref_table`(`$ref_field`) ON DELETE RESTRICT ON UPDATE CASCADE";
                     }
                     unset($changes['fk'][$field]); // remove from $changes since we take care of it manually with $index_parts
-                } else if ($change == 'unique' && isset($change_val)) {
+                } else if ($change == 'unique') {
                     if ($change_val) {
                         $index_parts[] = "ADD CONSTRAINT `$field` UNIQUE (`$field`)";
                     } else { // handle case of removing unique constraint, have to drop index...
@@ -1369,15 +1392,20 @@ function save_table( $ajax_data ) {
             $sql_tmp .= "COMMENT :comment$i";
     
             // if no change to the field name, we use the original name twice so that we can use the "CHANGE COLUMN" function (instead of ALTER/MODIFY)
-            $name_change !== false ? $sql_parts[] = "`$field` $sql_tmp" : $sql_parts[] = "`$field` `$field` $sql_tmp";
-            $name_change !== false ? $sql_parts_history[] = "`$field` $sql_tmp_history" : $sql_parts_history[] = "`$field` `$field` $sql_tmp_history";
+            if ($name_change !== false) {
+                $sql_parts[] = "`$field` $sql_tmp";
+                $sql_parts_history[] = "`$field` $sql_tmp_history";
+            } else {
+                $sql_parts[] = "`$field` `$field` $sql_tmp";
+                $sql_parts_history[] = "`$field` `$field` $sql_tmp_history";
+            }
         }
     }
 
 
     $stmt_table = edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table, $index_parts);
 
-    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, 'sql'=>$stmt_table, 'parts'=>$sql_parts ));
+    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, 'sql'=>$stmt_table, 'parts'=>$sql_parts, 'delete'=>$delete_cols, 'new'=>$new_sql_fields, 'index'=>$index_parts, 'bind'=>$bindings ));
 
     // Execute
     if ( $stmt_table->execute() !== false ) {
@@ -1420,7 +1448,11 @@ function save_table( $ajax_data ) {
 
 function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table=NULL, $index_parts=NULL) {
 
-    $sql_table = '';
+    // we lock table and disable foreign key checks so that any changes
+    // to a field with a foreign key won't throw an error
+    // the right way to do it is to delete the FK and then recreate it
+    // see: http://stackoverflow.com/q/13606469/1153897
+    $sql_table = "LOCK TABLES `$original_table` WRITE; SET FOREIGN_KEY_CHECKS = 0;";
 
     // if at least one field is being updated
     if (!$no_changes && count($sql_parts) > 0) $sql_table .= "ALTER TABLE `$original_table` CHANGE COLUMN " . implode(', ', $sql_parts) . "; ";
@@ -1429,7 +1461,7 @@ function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no
     if (count($delete_cols) > 0) $sql_table .= "ALTER TABLE `$original_table` DROP COLUMN `". implode('`, DROP COLUMN `', $delete_cols) . "`; "; 
 
     // if adding columns
-    if (count($new_cols) > 0) {
+    if (count($new_sql_fields) > 0) {
         $sql_table .= "ALTER TABLE `$original_table` ADD " . implode(', ADD', $new_sql_fields) . "; ";
     }
 
@@ -1441,11 +1473,14 @@ function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no
     // if renaming table, do it last
     if ($new_table !== $original_table) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
 
+    $sql_table .= "SET FOREIGN_KEY_CHECKS = 1; UNLOCK TABLES; ";
+
     if ($bindings !== null) {
         return bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
     } else {
         return $sql_table;
     }
+
 }
 
 
@@ -1975,7 +2010,7 @@ function validate_field($db, $dat, $fields) {
     $sql_str .= " COMMENT :comment$i";
 
     // add index if not long string and not unique
-    if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX_%s` (`$field_name`)", $field_name, substr(md5(rand()), 0, 4));
+    if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", ADD INDEX `%s_IX` (`$field_name`)", $field_name);
 
     // if FK type was requested, add the constraint
     if ($is_fk) {
