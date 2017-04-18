@@ -207,15 +207,23 @@ class Database {
     // where keys are fields which must be unique and
     // the value are the values that field currently has
     // will only return values for visible fields
-    public function get_unique_vals( $table ) {
+    // if the optional $key_col is provided, the unique
+    // values will be returned as an assoc array where the 
+    // key is the value of the field specified by $key_col
+    // this is used in the case where $key_col is unique  & required
+    // and thus serves as a unique identifier for the row
+    // used with batch edit file
+    public function get_unique_vals( $table, $key_col=NULL ) {
         if ( in_array( $table, $this->get_all_tables() ) ) {
             $unique_cols = $this->get_unique( $table );
 
             $unique_vals = [];
             if ( $unique_cols !== False ) {
-    
+   
+                if ($key_col) $keys = $this->get_field($table, $key_col)->get_unique_vals();
                 foreach( $unique_cols as $field ) {
                     $vals = $this->get_field( $table, $field)->get_unique_vals();
+                    if ($key_col) $vals = array_combine($keys, $vals);
                     if ( $vals !== False ) $unique_vals[$field] = $vals;
                 }                
 

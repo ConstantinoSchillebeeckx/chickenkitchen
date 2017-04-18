@@ -271,11 +271,11 @@ function radioSelect(selectedRadio) {
     if (selectedRadio.value == 'batchAdd') {
         content = 'To add data to this table, please upload a file with atleast the following columns (any others will be ignored): <code>' + required.join('</code>,<code>') + '</code>';
     } else if (selectedRadio.value == 'batchEdit' ) {
-        content = 'In order to edit multiple rows in this table, each row must be uniquely identifiable.';
+        content = '';
         if (pk != '') {
-            content += ' This table does have a unique, required column (<code>' + pk + '</code>); when uploading a file, this column along with any data to be updated are the only required information needed.'
+            content += 'This table does have a unique, required column (<code>' + pk + '</code>); when uploading a file, this column along with any data to be updated are the only required information needed. If you\'d like to edit the data in the column <code>' + pk + '</code> simply add an additional column to your upload file with the header name <code>Rename</code> and place the updated data there.';
         } else {
-            content += ' This table does not have any unique, required columns; therefore <b>it is not possible to batch update</b> the table.'
+            content += 'In order to edit multiple rows in this table, each row must be uniquely identifiable. This table does not have any unique, required columns; therefore <b>it is not possible to batch update</b> the table.'
             jQuery('#confirmEdit').prop('disabled', true);
         }
     } else if (selectedRadio.value == 'batchDelete' ) {
@@ -808,7 +808,7 @@ function batchFormSubmit( event ) {
         // since we're uploading a file, our AJAX request needs to be
         // modified a bit to be able to use FormData/XHR
         jQuery.ajax({
-            url: 'ajax.php',
+            url: 'http://meepmoop.com/chickenkitchen/ajax.php',
             type: 'POST',
             xhr: function() {  // custom xhr
                 myXhr = $.ajaxSettings.xhr();

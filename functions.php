@@ -567,6 +567,7 @@ function batch_update_db( $ajax_data, $files ) {
     $table = $ajax_data['table'];
     $db = get_db_setup();
 
+
     // check that we have everything
     if ( !isset( $table ) || empty( $table) ) {
         return json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
@@ -611,9 +612,65 @@ function batch_update_db( $ajax_data, $files ) {
  * json encoded error message for use with showMsg()
  * 
 */
-function batch_edit() {
+function batch_edit($db, $table, $files) {
 
-    return json_encode(array("msg" => 'Not yet implemented; see function <code>batch_edit()</code> in functions.php', "status" => false, "hide" => false));
+    // ensure there is a unique, required column
+    $unique_fields = $db->get_unique($table);
+    $required_fields = $db->get_required_fields($table);
+    $unique_required = array_intersect($unique_fields, $required_fields);
+
+    if (count($unique_required)) { // table can be batch edited
+
+        $key = $unique_required[0]; // just use the first one (if multiple present) as our unique identifying row key
+        $fk_vals = $db->get_fk_vals( $table );
+        $unique_vals = $db->get_unique_vals( $table, $key );
+        unset($unique_vals[$key]);
+        $visible_fields = $db->get_visible_fields( $table );
+
+        $delim = validate_uploaded_file( $files );
+        if (is_array($delim)) return json_encode($delim);
+
+
+        // loop through file and validate each row
+        ini_set('auto_detect_line_endings',TRUE);
+        if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
+            $row = 0;
+            $rename = false;
+            while ( ( $line = fgetcsv($handle, 0, $delim ) ) !== FALSE ) {
+
+                // check header for all required fields
+                if ( $row == 0 ) {
+                    $header = $line;
+                    if (!in_array($key, $header)) return json_encode(array("msg" => "The uploaded file must contain the field <code>$key</code> in order to do a batch edit; the following columns were provided <code>" . implode("</code>,<code>", $header) . "</code>", "status" => false, "hide" => false, 'log'=>$header, 'delim'=>$delim));
+                    if (in_array('rename', $header) || in_array('Rename',$header)) $rename=true;
+                } else {
+
+                    // switch out any changes to unique columns so that we can keep doing the uniqueness check
+                    foreach ($unique_vals as $col => $arr) { // $arr is assoc where the key is the $key column value
+                        $change = $line[$col]; // edited value of unique col row
+                        $arr[$line[$key]] = $change;
+                        $unique_vals[$col] = $arr; // this isn't working
+                    }
+
+                    // validate each row of data by checking
+                    // - that the key has a value in it
+                    // - that the changes to each field are allowed
+                    $dat = array_combine( $header, $line );
+                    $validate = validate_row( $dat, $table, False, $visible_fields, $required_fields, $fk_vals, [], $row );  // change here!
+                    if ($validate !== true ) return $validate;
+
+
+                }
+                $row += 1;
+            }
+        }
+        ini_set('auto_detect_line_endings',FALSE);
+
+        return json_encode(array("msg" => 'ok.', "status" => false, "hide" => false, 'unique'=>$unique_vals));
+    } else {
+        return json_encode(array("msg" => 'In order to batch edit, the table must have a unique, required column.', "status" => false, "hide" => false));
+    }
+
 
 }
 
@@ -623,13 +680,16 @@ function batch_edit() {
 /**
  * Execute batch delete
  * 
+ * Execute a batch delete of rows only after they
+ * have all been properly validated.
+ * 
  * In order to execute a batch delete the table must
  * either have a unique, required column, or all fields
  * must be provided. Otherwise we can't guarantee the
  * proper row is being deleted.
  * 
  * For each desired deleted row, the _UID is queried,
- * this set set of PKs is then used with an IN() sql
+ * this set of PKs is then used with an IN() sql
  * statement to delete the rows as well as update the
  * history.
  * 
@@ -661,6 +721,7 @@ function batch_delete($db, $table, $files ) {
     if (is_array($delim)) return json_encode($delim);
 
     // loop through file and validate each row
+    ini_set('auto_detect_line_endings',TRUE);
     if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
         $row = 0;
         while ( ( $line = fgetcsv($handle, 0, $delim ) ) !== FALSE ) {
@@ -703,28 +764,30 @@ function batch_delete($db, $table, $files ) {
             $row += 1;
         }
 
-        // delete rows with given pks
-        $sql = "DELETE FROM `$table` WHERE $pk IN (" . implode(',', array_fill(0, count($pks), '?')) . ")";
-        $stmt = $db_conn->prepare($sql);
-        $status = $stmt->execute($pks);
-        $status2 = add_item_to_history_table( $table . "_history", $_SESSION['user_name'], $pks, "Batch deleted", [], $db_conn );
-
-        if ( $status === false ) { // error
-            if ( DEBUG ) {
-                return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt->errorInfo()), "status" => false, "hide" => false, 'log'=>$sql));
-            } else {
-                return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
-            }
-        } else {
-
-            if ( DEBUG ) {
-                return json_encode(array("msg" => $stmt->rowCount() . " items properly deleted from table", "status" => true, "hide" => true, "log" => $stmt->errorInfo(), 'stat' => $stmt ) );
-            } else {
-                return json_encode(array("msg" => $stmt->rowCount() . " items properly deleted from table", "status" => true, "hide" => true ));
-            }
-        }
-
     }
+    ini_set('auto_detect_line_endings',FALSE);
+
+    // delete rows with given pks
+    $sql = "DELETE FROM `$table` WHERE $pk IN (" . implode(',', array_fill(0, count($pks), '?')) . ")";
+    $stmt = $db_conn->prepare($sql);
+    $status = $stmt->execute($pks);
+    $status2 = add_item_to_history_table( $table . "_history", $_SESSION['user_name'], $pks, "Batch deleted", [], $db_conn );
+
+    if ( $status === false ) { // error
+        if ( DEBUG ) {
+            return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt->errorInfo()), "status" => false, "hide" => false, 'log'=>$sql));
+        } else {
+            return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+        }
+    } else {
+
+        if ( DEBUG ) {
+            return json_encode(array("msg" => $stmt->rowCount() . " items properly deleted from table", "status" => true, "hide" => true, "log" => $stmt->errorInfo(), 'stat' => $stmt ) );
+        } else {
+            return json_encode(array("msg" => $stmt->rowCount() . " items properly deleted from table", "status" => true, "hide" => true ));
+        }
+    }
+
 }
 
 
@@ -764,6 +827,7 @@ function batch_add($db, $table, $files ) {
         
 
     // loop through file and validate each row
+    ini_set('auto_detect_line_endings',TRUE);
     if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
         $row = 0;
         $bind_vals = [];  // validated row values to batch insert SQL
@@ -802,6 +866,7 @@ function batch_add($db, $table, $files ) {
             $row += 1;
         }
     }
+    ini_set('auto_detect_line_endings',FALSE);
 
     $uid_fk = intval( get_db_conn()->query( "SELECT `auto_increment` FROM INFORMATION_SCHEMA.TABLES WHERE table_name = '$table'" )->fetch()['auto_increment'] ); // UID of last element added, used to increment _UID_fk
 
@@ -852,7 +917,7 @@ function validate_uploaded_file( $file ) {
 
 
     // figure out delimiter
-    $delimiters = array(',','\t',';','|',':');
+    $delimiters = array(",","\t",";","|",":");
     $delim = getFileDelimiter($file['tmp_name'], 5, $delimiters); // figure out delimiter
 
     if ( !in_array( $delim, $delimiters ) ) {
@@ -2186,7 +2251,7 @@ function validate_row( $dat, $table, $edit=False, $visible_fields=False, $requir
                     if ($row_num === False) {
                         return json_encode(array("msg" => "The item value <code>$field_val</code> already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
                     } else {
-                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row_num) add already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row_num) already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
                     }
                 }
 

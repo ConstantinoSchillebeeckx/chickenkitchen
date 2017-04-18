@@ -27,7 +27,7 @@
         } else if ( $action == 'editItem' ) {
             echo edit_item_in_db( $_GET );
             $error = false;
-        } else if ( $action == 'batchUpdate' ) { // handles add, edit, delete
+        } else if ( $action == 'batchUpdate' ) { // handles add, edit, delete in batch
             echo batch_update_db( $_POST, $_FILES['batchFile'] );
             $error = false;
         } else if ( $action == 'revertItem' ) { // revert changes from history modal
