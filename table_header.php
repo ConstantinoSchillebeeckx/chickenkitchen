@@ -8,16 +8,16 @@ will setup the button cluster that handle the events of:
  - edit table
  - delete table
 
-Note that this cluster will only be shown for the following roles:
- - contributor
- - editor
- - admin
+Note that this cluster will only be shown for the following user_role:
+ - Contributor
+ - Editor
+ - Admin
 (that is, it'll be hidden from read_only)
 
 */
 ?>
 
-<?php if (in_array($_SESSION['user_role'], array('contributor','editor','admin'))) { ?>
+<?php if (in_array($_SESSION['user_role'], array('contributor','editor','administrator'))) { ?>
 
 <div class="col-sm-4" style="margin-top:20px">
     <div class="btn-group pull-right" role="group" aria-label="...">

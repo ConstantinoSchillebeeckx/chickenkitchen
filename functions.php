@@ -602,6 +602,13 @@ function batch_update_db( $ajax_data, $files ) {
  * have a unique, required column. Otherwise we can't 
  * guarantee the proper row is being deleted.
  * 
+ * Function will step through each row in the file,
+ * and ensure that the data for the 'key' (the unique,
+ * required column) is valid.
+ *
+ * NOTE: function does not check if data are being changed,
+ * that is, if the same table is provided, these data will
+ * be re-written to the table.
  * 
  * @params:
  * (db class) $db - db setup
@@ -624,7 +631,6 @@ function batch_edit($db, $table, $files) {
         $key = $unique_required[0]; // just use the first one (if multiple present) as our unique identifying row key
         $fk_vals = $db->get_fk_vals( $table );
         $unique_vals = $db->get_unique_vals( $table, $key );
-        unset($unique_vals[$key]);
         $visible_fields = $db->get_visible_fields( $table );
 
         $delim = validate_uploaded_file( $files );
@@ -635,30 +641,70 @@ function batch_edit($db, $table, $files) {
         ini_set('auto_detect_line_endings',TRUE);
         if (($handle = fopen( $files['tmp_name'], "r")) !== FALSE) {
             $row = 0;
-            $rename = false;
+            $bind_vals = [];  // validated row values to batch insert SQL
+            $sql_parts = [];
+            $bind_vals_history = [];
+            $bind_labels_history = [];
+            $keys = []; // list of keys (even after renaming) that were updated, used to find _UID to upate history
             while ( ( $line = fgetcsv($handle, 0, $delim ) ) !== FALSE ) {
 
                 // check header for all required fields
                 if ( $row == 0 ) {
                     $header = $line;
                     if (!in_array($key, $header)) return json_encode(array("msg" => "The uploaded file must contain the field <code>$key</code> in order to do a batch edit; the following columns were provided <code>" . implode("</code>,<code>", $header) . "</code>", "status" => false, "hide" => false, 'log'=>$header, 'delim'=>$delim));
-                    if (in_array('rename', $header) || in_array('Rename',$header)) $rename=true;
+                    $bind_label_template = ':' . implode('_num, :', $header) . '_num'; // this will get updated for each row by replacing _num with $row - used to speed things up
                 } else {
+                    // change file row into assoc array with header as keys
+                    $line = array_combine($header, $line);
+            
+                    // ensure something is written in key
+                    if ($line[$key] == '') return json_encode(array("msg" => "The column <code>$key</code> is empty in row $row, please ensure this field has a value for each row.", "status" => false, "hide" => false, 'line'=>$line));
 
-                    // switch out any changes to unique columns so that we can keep doing the uniqueness check
+                    $rename = (in_array('Rename',$header) && $line['Rename'] != ''); // true if key being renamed
+
+                    // remove current row from unique values since validate_row() will check it
                     foreach ($unique_vals as $col => $arr) { // $arr is assoc where the key is the $key column value
-                        $change = $line[$col]; // edited value of unique col row
-                        $arr[$line[$key]] = $change;
-                        $unique_vals[$col] = $arr; // this isn't working
+                        unset($arr[$line[$key]]);
+                        $unique_vals[$col] = $arr;
                     }
 
-                    // validate each row of data by checking
-                    // - that the key has a value in it
-                    // - that the changes to each field are allowed
-                    $dat = array_combine( $header, $line );
-                    $validate = validate_row( $dat, $table, False, $visible_fields, $required_fields, $fk_vals, [], $row );  // change here!
+                    $original_line = $line; // keep copy of original in case of renaming
+                    if ($rename) {
+                        $line[$key] = $line['Rename']; // if renaming, use the rename column
+                        $keys[] = $line['Rename'];
+                    } else {
+                        $keys[] = $line[$key];
+                    }
+
+                    // validate each row of data
+                    $validate = validate_row( $line, $table, False, $visible_fields, $required_fields, $fk_vals, $unique_vals, $row ); 
                     if ($validate !== true ) return $validate;
 
+                    // if row is valid, update the unique vals
+                    foreach( $unique_vals as $field => $vals ) {
+                        $vals[$line[$key]] = $original_line[$field];
+                        $unique_vals[$field] = $vals;
+                    }
+
+                    // row is valid, generate SQL
+                    $tmp_parts = [];
+                    foreach($original_line as $field => $val) {
+                        if ($val != '' && $field != 'Rename') {
+                            $tmp_parts[] = "`$field` = :$field" . "_$row";
+                            $bind_vals[$field . "_$row"] = $val;
+                        }
+                    }
+                    $sql_parts[] = "UPDATE `$table` SET " . implode(', ', $tmp_parts) . " WHERE `$key`= :key_$row";
+                    $bind_vals["key" . "_$row"] = $original_line[$key];
+                    $bind_vals_history[] = array_values($line);
+                    $bind_labels_history[] = str_replace( '_num', $row - 1, $bind_label_template );
+
+                    // update row data first, then rename key if needed
+                    if ($rename) {
+                        $sql_parts[] = "UPDATE `$table` SET `$key`=:key_rename_$row  WHERE `$key`=" . ":rename_$row";
+                        $bind_vals["key_rename_$row"] = $original_line[$key];
+                        $bind_vals["rename_$row"] = $original_line[$key];
+                    }
 
                 }
                 $row += 1;
@@ -666,11 +712,36 @@ function batch_edit($db, $table, $files) {
         }
         ini_set('auto_detect_line_endings',FALSE);
 
-        return json_encode(array("msg" => 'ok.', "status" => false, "hide" => false, 'unique'=>$unique_vals));
+        $db_conn = get_db_conn();
+        $sql = implode('; ', $sql_parts);
+        $stmt = bind_pdo( $bind_vals, $db_conn->prepare( $sql ) );
+        $status = $stmt->execute();
+        $status = True;
+
+        if ( $status === false ) { // error
+            if ( DEBUG ) {
+                return json_encode(array("msg" => "An error occurred: " . implode(' - ', $stmt->errorInfo()), "status" => false, "hide" => false));
+            } else {
+                return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false ));
+            }
+        } else {
+            // enter data for history table
+            // first get list of _UID that were updated with batch file
+            $sql = "SELECT _UID FROM $table WHERE `$key` in ('" . implode("','", $keys) . "')";
+            $UID = $db_conn->query($sql)->fetchAll(PDO::FETCH_COLUMN);
+            $stmt = bind_pdo_batch( $table, $header, $bind_vals_history, $bind_labels_history, $_SESSION['user_name'], 'Batch edited', $UID );
+            $status = $stmt->execute();
+
+            if ( DEBUG ) {
+                return json_encode(array("msg" => "Table properly edited, $row rows edited.", "status" => true, "hide" => true, "log" => implode(' - ', $stmt->errorInfo()) ) );
+            } else {
+                return json_encode(array("msg" => "Table properly edited, $row rows edited.", "status" => true, "hide" => true ));
+            }
+        }
+
     } else {
         return json_encode(array("msg" => 'In order to batch edit, the table must have a unique, required column.', "status" => false, "hide" => false));
     }
-
 
 }
 
@@ -2104,8 +2175,9 @@ function validate_field($db, $dat, $fields) {
  * The following are optional and designate a batch edit
  * (str) $user - name of user doing batch
  * (str) $action - type of batch action
- * (int) $uid_fk - last _UID in DB before batch add
- *  initiated, used to properly set _UID_fk
+ * (int or arr) $uid_fk - last _UID in DB before batch add
+ *  initiated, used to properly set _UID_fk (in case of batch add)
+ * OR an array of UIDs (in the case of batch edit)
  *
  *
  * @returns:
@@ -2121,7 +2193,11 @@ function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, $user=NULL, 
 
         // we need to manaully construct the bound values a bit since we have the _UID_pk
         foreach ( $bind_labels as $i => $label ) {
-            $parts[] = "(" . ($uid_fk + $i) . ", '$user', '$action', $label)";
+            if (!is_array($uid_fk)) { // batch add, $uid_fk is last _UID added in DB
+                $parts[] = "(" . ($uid_fk + $i) . ", '$user', '$action', $label)";
+            } else { // batch edit, $uid_fk is an array of _UIDs
+                $parts[] = "(" . ($uid_fk[$i]) . ", '$user', '$action', $label)";
+            }
         }
         $sql .= implode(", ", $parts);
     } else {
@@ -2160,7 +2236,7 @@ function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, $user=NULL, 
  *
  * @param 
  * (assoc. array) $bindings - table data being
- *  bound in parepare statment with form
+ *  bound in prepare statment with form
  *  [ table_column => column value ]
  * (pdo) $stmt - prepared PDO statement for binding
  *
@@ -2251,7 +2327,7 @@ function validate_row( $dat, $table, $edit=False, $visible_fields=False, $requir
                     if ($row_num === False) {
                         return json_encode(array("msg" => "The item value <code>$field_val</code> already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
                     } else {
-                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row_num) already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false));
+                        return json_encode(array("msg" => "The item value <code>$field_val</code> (found in row $row_num) already exists in the unique field <code>$field_name</code>, please choose another.", "status" => false, "hide" => false, 'unique'=>$unique_vals));
                     }
                 }
 
@@ -2504,8 +2580,24 @@ function setup_session() {
 
     require_once('config/db.php');
 
-    $_SESSION['user_role'] = USER_ROLE;
-    $_SESSION['user_name'] = USER_NAME;
+    if (function_exists(wp_get_current_user)) { // if wordpress exists
+        $user = wp_get_current_user();
+        $user_dat = get_userdata($user->ID);
+        $user_roles = $user_dat->roles; // this is an array of roles
+
+        $role_check = array('administrator', 'contributor', 'editor', 'author', 'subscriber');
+
+        foreach ($role_check as $role) {
+            if (in_array($role, $user_roles)) {
+                $_SESSION['user_role'] = $role;
+            }
+        }
+
+        $_SESSION['user_name'] = $user->ID;
+    } else {
+        $_SESSION['user_role'] = USER_ROLE;
+        $_SESSION['user_name'] = USER_NAME;
+    }
 
 }
 

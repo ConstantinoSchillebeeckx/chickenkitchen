@@ -36,5 +36,4 @@ deleted if requested.
     <?php isset($_GET['table']) ? batch_form( $_GET['table'] ) : list_tables() ?>
 </div>
 
-
 <?php require_once 'footer.php'; ?>
