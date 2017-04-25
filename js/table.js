@@ -448,7 +448,7 @@ Parameters (set by build_table()):
 */
 
 
-function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
+function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory, db) {
 
     var colWidth = '40px'; // column width for "Action" column
 
@@ -501,6 +501,18 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
                 colDefs[i]['searchable'] = false;
             }
         }
+
+        // set column formatter if needed
+        // only one supported right now is 'date'
+        // TODO - do we want to do this server side?
+        var colName = columns[i];
+        if (typeof db !== 'undefined') {
+            var colDat = db[colName];
+            var colFormat = colDat['comment']['column_format'];
+            if (typeof colFormat !== 'undefined') {
+                if (colFormat === 'date') colDefs[i]['render'] = function(data, type, full, meta) { return data.split(' ')[0]; } // format sql datetime to date
+            }
+        }
     }
 
     // set Action column data to empty since we are automatically adding buttons here
@@ -512,6 +524,8 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
         "width": colWidth,
         "orderable": false,
     });
+
+    console.log(colDefs)
 
 
     // crusty workaround for the issue: https://datatables.net/manual/tech-notes/3

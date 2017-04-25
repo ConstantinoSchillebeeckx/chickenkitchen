@@ -158,7 +158,7 @@ function build_table( $table ) {
             var pk = <?php echo json_encode( $pk ); ?>;
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
-            getDBdata(table, pk, columns, null, hidden, null, hasHistory); // function will populate table and hidden any columns needed
+            getDBdata(table, pk, columns, null, hidden, null, hasHistory, db); // function will populate table and hidden any columns needed
 
             // assumes variables db, and fk_vals exist
             // these are set in table_search.php
