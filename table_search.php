@@ -31,9 +31,10 @@ and options for the query builder.
 
     // get the DB structure
     var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
-    db = tmp.struct; // global
+    var fk_vals = <?php echo json_encode(get_db_setup()->get_fk_vals( $_GET['table'] )); ?>;
+    var db = tmp.struct;
 
-    var filters = setup_query_builder_filter( db );
+    var filters = setup_query_builder_filter( db, fk_vals );
 
     // build the query builder
     jQuery('#query-builder').queryBuilder({

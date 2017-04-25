@@ -160,10 +160,10 @@ function build_table( $table ) {
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
             getDBdata(table, pk, columns, null, hidden, null, hasHistory); // function will populate table and hidden any columns needed
 
+            // assumes variables db, and fk_vals exist
+            // these are set in table_search.php
             jQuery(document).ready(function() {
-                var fk_vals = <?php echo json_encode(get_db_setup()->get_fk_vals( $_GET['table'] )); ?>;
-                var tmp = <?php echo get_db_setup()->asJSON( $_GET['table'] ); ?>;
-                make_popover_labels( tmp.struct, fk_vals );
+                make_popover_labels( db, fk_vals );
             });
 
         </script>

@@ -30,7 +30,7 @@ library
 
 <div id="body">
     <div class="row">
-        <div class=<?php echo isset($_GET['table']) ? "col-sm-8" : "col-sm-12" ?>>
+        <div class=<?php echo isset($_GET['table']) ? "col-sm-7" : "col-sm-12" ?>>
             <h1><?php echo isset($_GET['table']) ? "Viewing table <code>" . $_GET['table'] . "</code>" : "View tables" ?></h1>
         </div>
         <?php isset($_GET['table']) ? include('table_header.php') : list_tables(); ?>

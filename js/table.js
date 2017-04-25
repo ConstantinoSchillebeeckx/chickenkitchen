@@ -537,6 +537,8 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
                     // disable last revert button, since it doesn't make sense to revert to itself
                     jQuery("#historyTable tbody").find("tr:last").find("td:last").find("button").prop('disabled', true)
                 }
+                responseDat = d.responseJSON.data; // store data as global for use with meowcow (plotting)
+                console.log(d)
             },
             },
         "columnDefs": colDefs,
@@ -548,10 +550,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory) {
 
     // destroy global so that we only set this for history table
     // see workaround above
-    if (tableID == '#datatable') {
-        historyTable = null;
-    }
-
+    if (tableID == '#datatable') historyTable = null;
 
 };
 
@@ -562,12 +561,14 @@ Function used to setup the query builder for advanced search. Will
 create the 'filter' option for the builder based on the field types
 of the current table.
 
-Param: db object
+Param: 
+db object
+fk_vals object with fk fields as keys and list of values for value    
 
 Returns: json 'filter' option
 
 */
-function setup_query_builder_filter( db ) {
+function setup_query_builder_filter( db, fk_vals ) {
 
 
     // build filter for query builder
@@ -580,6 +581,8 @@ function setup_query_builder_filter( db ) {
             tmp.id = field_dat.comment.name;
             tmp.label = field;
             type = field_dat.type; // varchar, datetime, etc
+            is_fk = field_dat.is_fk; // true if field is a foreign key
+
 
             // get field type
             if (type.indexOf('varchar') !== -1) {
@@ -596,6 +599,12 @@ function setup_query_builder_filter( db ) {
                 type = 'integer';
             }
             tmp.type = type;
+
+            // if field is a FK, set values for dropdown
+            if (is_fk) {
+                tmp.values = fk_vals[field];
+                tmp.input = 'select';
+            }
 
             // set operators and options based on type
             if (tmp.type == 'string') {
