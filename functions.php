@@ -247,6 +247,7 @@ function get_form_table_row($table) {
         $field_class = $db->get_field($table, $field);
         $field_type = $field_class->get_type();
         $comment = $field_class->get_comment();
+        $field_name = $comment['name'];
     
         if ($comment['column_format'] != 'hidden') {
             if ( preg_match('/float|int/', $field_type) ) {
@@ -264,9 +265,9 @@ function get_form_table_row($table) {
 
                 <?php if ($field_class->is_required()) {
                     $hasRequired = true;
-                    echo "<label class='col-sm-2 control-label'>$field<span class='required'>*</span> <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
+                    echo "<label class='col-sm-2 control-label'>$field_name<span class='required'>*</span> <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
                 } else {
-                    echo "<label class='col-sm-2 control-label'>$field <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
+                    echo "<label class='col-sm-2 control-label'>$field_name <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
                 } ?>
 
                 <div class="col-sm-10">
