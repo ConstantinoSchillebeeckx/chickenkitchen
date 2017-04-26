@@ -141,7 +141,7 @@ function build_table( $table ) {
             } else {
                 $field_name = $field;
             }
-            echo "<th>$field_name <span class='popover-$field fa fa-info-circle fa-lg text-muted' aria-hidden='true'></span></th>"; 
+            echo "<th><span class='popover-$field' aria-hidden='true'>$field_name</span></th>"; 
         }
         ?>
 
@@ -248,6 +248,10 @@ function get_form_table_row($table) {
         $field_type = $field_class->get_type();
         $comment = $field_class->get_comment();
         $field_name = $comment['name'];
+        if ($field_class->is_required()) {
+            $field_name .= '*';
+            $hasRequired = true;
+        }
     
         if ($comment['column_format'] != 'hidden') {
             if ( preg_match('/float|int/', $field_type) ) {
@@ -263,33 +267,27 @@ function get_form_table_row($table) {
 
             <div class="form-group">
 
-                <?php if ($field_class->is_required()) {
-                    $hasRequired = true;
-                    echo "<label class='col-sm-2 control-label'>$field_name<span class='required'>*</span> <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
-                } else {
-                    echo "<label class='col-sm-2 control-label'>$field_name <span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
-                } ?>
-
-                <div class="col-sm-10">
+                <div class="col-sm-11">
 
                 <?php if ( $field_class->is_fk() ) {  // if field is an fk, show a select dropdown with available values
                     get_fks_as_select($field_class);
                 } else {
                     if ( in_array( $field_class->get_type(), array('datetime', 'date') ) && $field_class->get_default() ) {
-                        echo "<input type='$type' id='$field' name='$field' class='form-control' disabled></input><small class='text-muted'>Field has been disabled since it populates automatically</small>";
+                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' disabled></input><small class='text-muted'>Field has been disabled since it populates automatically</small>";
                     } elseif ($field_class->is_required()) {
-                        echo "<input type='$type' id='$field' name='$field' class='form-control' required>";
+                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' required>";
                     } else {
-                        echo "<input type='$type' id='$field' name='$field' class='form-control'>";
+                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control'>";
                     }
-                } ?>
-
-                </div>
+                } 
+                echo '</div>';
+                echo "<label class='col-sm-1 control-label info-popover'><span class='popover-$field fa fa-info-circle text-primary' aria-hidden='true' data-placement='bottom'></span></label>";
+                ?>
             </div>
     <?php    }
      } 
     if ($hasRequired) {
-        echo '<p class="text-right"><span class="required">*</span> field is required</p>';
+        echo '<p class="text-right"><span class="required">*</span>required field</p>';
     }
     ?>
 
