@@ -123,6 +123,7 @@ function build_table( $table ) {
     if ( isset( $db ) && isset( $table ) && $table_class ) {
   
         $fields = $db->get_all_fields($table); 
+        $field_format = [];
         $hidden = $table_class->get_hidden_fields();
 
         ?>
@@ -142,6 +143,10 @@ function build_table( $table ) {
                 $field_name = $field;
             }
             echo "<th><span class='popover-$field' aria-hidden='true'>$field_name</span></th>"; 
+
+            // store field format
+            $field_format[$field] = $comment['column_format'];
+
         }
         ?>
 
@@ -153,12 +158,11 @@ function build_table( $table ) {
         <script type="text/javascript">
             // This will do the AJAX call, func defined in js/table.js
             var table = <?php echo json_encode( $table ); ?>;
-            var columns = <?php echo json_encode( $fields ); ?>;
-            var hidden = <?php echo json_encode( $hidden ); ?>;
+            var columnFormat = <?php echo json_encode( $field_format ); ?>;
             var pk = <?php echo json_encode( $pk ); ?>;
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
-            getDBdata(table, pk, columns, null, hidden, null, hasHistory, db); // function will populate table and hidden any columns needed
+            getDBdata(table, pk, columnFormat, null, null, hasHistory, db); // function will populate table and hidden any columns needed
 
             // assumes variables db, and fk_vals exist
             // these are set in table_search.php

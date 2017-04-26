@@ -47,7 +47,7 @@ and options for the query builder.
         // query database for table data
         // vars are all set by build_table() in functions.php
         jQuery('#datatable').DataTable().destroy(); // destroy so that we can re-query table
-        getDBdata(table, pk, columns, filter, hidden, null, true);
+        getDBdata(table, pk, columnFormat, filter, null, true);
     });
 
 </script>

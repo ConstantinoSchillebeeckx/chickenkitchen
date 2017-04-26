@@ -4,7 +4,7 @@
  * Script that receives AJAX request for querying database   
  *
  * @param _GET['table'] str - table name to query
- * @param _GET['cols'] arr - array of column names in table
+ * @param _GET['cols'] assoc arr - array of column names in table as keys, column format as value
  * @param _GET['pk'] arr - name of field in DB that is primary key
  * @param _GET['filter'] assoc arr [col: filter] - filter for column
  *
@@ -26,8 +26,9 @@ if ( isset($_GET['table'] ) ) {
     // indexes
     $columns = array();
     if ( isset($_GET['cols']) && is_array($_GET['cols']) && !empty($_GET['cols']) ) {
-        foreach ($_GET['cols'] as $i => $col) {
-            $columns[] = array('db' => $col, 'dt' => $i);
+        foreach (array_keys($_GET['cols']) as $i => $col) {
+            $format = ($_GET['cols'][$col] !== '') ? $_GET['cols'][$col] : null;
+            $columns[] = array('db' => $col, 'dt' => $i, 'format' => $format);
         }
          
         $results = SSP::simple( $_GET, get_db_conn(), $table, $primaryKey, $columns );
@@ -56,8 +57,13 @@ class SSP {
                 $column = $columns[$j];
 
                 // Is there a formatter?
-                if ( isset( $column['formatter'] ) ) {
-                    $row[ $column['dt'] ] = $column['formatter']( $data[$i][ $column['db'] ], $data[$i] );
+                if ( !is_null( $column['format'] ) ) {
+                    $dat = $data[$i][ $columns[$j]['db'] ];
+                    if ($column['format'] == 'date') {
+                        $row[ $column['dt'] ] = explode(' ', $dat)[0];
+                    } else {
+                        $row[ $column['dt'] ] = $dat;
+                    }
                 }
                 else {
                     $row[ $column['dt'] ] = $data[$i][ $columns[$j]['db'] ];
@@ -287,7 +293,7 @@ class SSP {
             "recordsTotal"    => intval( $recordsTotal ),
             "recordsFiltered" => intval( $recordsFiltered ),
             "data"            => self::data_output( $columns, $data ),
-            "log" => $bindings, "filter" => $request['filter'], "where" => $where
+            "log" => $columns, "filter" => $request['filter'], "where" => $where
         );
     }
 

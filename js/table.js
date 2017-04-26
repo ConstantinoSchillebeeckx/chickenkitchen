@@ -439,16 +439,15 @@ queried by AJAX.  Both must have the same columns.
 
 Parameters (set by build_table()):
 - table : table name to query
-- columns : columns in table being queried
+- columnFormat (obj) : keys are columns, values are format (if available, e.g. 'date')
 - pk : primary key of table
 - filter : (optional) filter for table in format {col: val}
-- hidden : (optional) array of column names that should be hidden (e.g. UID)
 - tableID: (optional) the ID for the table into which to put data, defaults to #datatable
 - hasHistory: (optional) bool if table has history counter part
 */
 
 
-function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory, db) {
+function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, db) {
 
     var colWidth = '40px'; // column width for "Action" column
 
@@ -479,32 +478,33 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory, db) 
     var data =  {
         "action": "viewTable", 
         "table": table, 
-        "cols": columns,
+        "cols": columnFormat,
         "pk" : pk,
         "filter": filter,
     }
 
     // setup columnDefs
     var colDefs = [];
-    for (var i = 0; i < columns.length; i++) {
+    for (var i = 0; i < Object.keys(columnFormat).length; i++) {
         colDefs[i] = {};
 
-        colDefs[i]['name'] = columns[i];
+        var colName = Object.keys(columnFormat)[i];
+        var colFormat = columnFormat[colName];
+
+        colDefs[i]['name'] = colName;
         colDefs[i]['targets'] = i;
 
         // hide any columns listed in hidden
         // also make them non-searchable
-        if (hidden.length) { 
-            var idx = hidden.indexOf(columns[i]);
-            if (idx != -1) {
-                colDefs[i]['visible'] = false;
-                colDefs[i]['searchable'] = false;
-            }
+        if (colFormat === 'hidden') { 
+            colDefs[i]['visible'] = false;
+            colDefs[i]['searchable'] = false;
         }
 
         // set column formatter if needed
         // only one supported right now is 'date'
         // TODO - do we want to do this server side?
+/*
         var colName = columns[i];
         if (typeof db !== 'undefined') {
             var colDat = db[colName];
@@ -513,6 +513,7 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory, db) 
                 if (colFormat === 'date') colDefs[i]['render'] = function(data, type, full, meta) { return data.split(' ')[0]; } // format sql datetime to date
             }
         }
+*/
     }
 
     // set Action column data to empty since we are automatically adding buttons here
@@ -524,8 +525,6 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory, db) 
         "width": colWidth,
         "orderable": false,
     });
-
-    console.log(colDefs)
 
 
     // crusty workaround for the issue: https://datatables.net/manual/tech-notes/3
@@ -552,7 +551,6 @@ function getDBdata(table, pk, columns, filter, hidden, tableID, hasHistory, db) 
                     jQuery("#historyTable tbody").find("tr:last").find("td:last").find("button").prop('disabled', true)
                 }
                 responseDat = d.responseJSON.data; // store data as global for use with meowcow (plotting)
-                console.log(d)
             },
             },
         "columnDefs": colDefs,
@@ -627,9 +625,9 @@ function setup_query_builder_filter( db, fk_vals ) {
                 tmp.operators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'not_between', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty'];
             } else if (tmp.type == 'date' || tmp.type == 'datetime') {
                 tmp.operators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'not_between', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty'];
-                tmp.validation = {format: 'YYYY/MM/DD'};
+                tmp.validation = {format: 'YYYY-MM-DD'};
                 tmp.plugin = 'datepicker';
-                tmp.plugin_config = {format: 'yyyy/mm/dd', todayBtn: 'linked', todayHighlight: true, autoclose: true};
+                tmp.plugin_config = {format: 'yyyy-mm-dd', todayBtn: 'linked', todayHighlight: true, autoclose: true};
             }
 
             filters.push(tmp);
@@ -907,7 +905,7 @@ function historyModal(sel) {
 
     // fill table with data
     // vars are defined in modal.php
-    getDBdata(tableHist, pkHist, columnHist, {'_UID_fk': uidVal}, hiddenHist, '#historyTable', false);
+    getDBdata(tableHist, pkHist, columnHist, hiddenHist, '#historyTable', false);
 
 
 }

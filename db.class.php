@@ -299,6 +299,24 @@ class Database {
         }
     }
 
+    // given a table return all fields formats (including hidden fields) 
+    // as assoc array where keys are field names
+    public function get_all_field_formats($table) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            $fields = $this->get_struct()[$table]->get_fields();
+            $formats = [];
+
+            foreach($fields as $field) {
+                $formats[$field] = $this->get_struct()[$table]->get_field($field)->get_format();
+            }
+
+            return $formats;
+            
+        } else {
+            return array();
+        }
+    }
+
     // given a table return all visible (non-hidden)
     // fields in table as array
     public function get_visible_fields($table) {
@@ -757,6 +775,13 @@ class Field {
     // return comment attribute
     public function get_comment() {
         return $this->comment;
+    }
+
+    // return format attribute
+    // if not set, return null
+    public function get_format() {
+        $comment = $this->comment;
+        return ($comment['column_format']) ? $comment['column_format'] : null;
     }
 
     // if a field is unique, return the current values

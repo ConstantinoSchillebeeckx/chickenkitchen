@@ -15,7 +15,7 @@
  
             // update table name and data
             $table = $_GET['table'] . '_history'; 
-            $fields_hist = $db->get_all_fields($table); 
+            $field_formats = $db->get_all_field_formats($table); 
             $table_class = $db->get_table($table);
             $hidden_hist = $table_class->get_hidden_fields();
             ?>
@@ -24,7 +24,7 @@
             <thead>
             <tr class="info">
 
-            <?php foreach ( $fields_hist as $field ) { echo "<th>$field</th>"; } ?>
+            <?php foreach ( $field_formats as $field => $format ) { echo "<th>$field</th>"; } ?>
 
             <th>Revert</th>
             </tr>
@@ -32,7 +32,7 @@
             </table>
 
             <script type="text/javascript">
-                var columnHist = <?php echo json_encode( $fields_hist ); ?>;
+                var columnHist = <?php echo json_encode( $field_formats ); ?>;
                 var hiddenHist = <?php echo json_encode( $hidden_hist ); ?>;
                 var tableHist = table + '_history'; // assumes history table has appended '_history'
                 // table gets filled once the history button is clicked
