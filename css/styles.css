@@ -6,3 +6,7 @@
     text-align: left !important;
     padding-left: 0px !important;
 }
+
+html {
+    overflow-y: scroll !important; /* forces vertical scrollbar  */
+}

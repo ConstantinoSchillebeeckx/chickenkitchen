@@ -623,6 +623,21 @@ function setup_query_builder_filter( db, fk_vals ) {
                 tmp.operators = ['equal', 'not_equal', 'in', 'not_in', 'begins_with', 'not_begins_with', 'contains', 'not_contains', 'ends_with', 'not_ends_with', 'is_empty', 'is_not_empty', 'is_null', 'is_not_null'];
             } else if (tmp.type == 'integer' || tmp.type == 'double') {
                 tmp.operators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'not_between', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty'];
+                /*tmp.plugin = 'slider';
+                tmp.plugin_config = {min: 0, max: 100, value: 0};
+                tmp.valueSetter = function(rule, value) {
+                  if (rule.operator.nb_inputs == 1) value = [value];
+                  rule.$el.find('.rule-value-container input').each(function(i) {
+                    $(this).slider('setValue', value[i] || 0);
+                  });
+                }
+                tmp.valueGetter = function(rule) {
+                  var value = [];
+                  rule.$el.find('.rule-value-container input').each(function() {
+                    value.push($(this).slider('getValue'));
+                  });
+                  return rule.operator.nb_inputs == 1 ? value[0] : value;
+                }*/
             } else if (tmp.type == 'date' || tmp.type == 'datetime') {
                 tmp.operators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'not_between', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty'];
                 tmp.validation = {format: 'YYYY-MM-DD'};
@@ -634,6 +649,8 @@ function setup_query_builder_filter( db, fk_vals ) {
         }
 
     }
+
+    console.log(filters)
 
     return filters;
 }

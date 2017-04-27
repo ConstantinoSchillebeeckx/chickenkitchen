@@ -9,22 +9,6 @@ A simplified CRUD front-end with built in visualization features.
 - [jQuery](https://code.jquery.com/)
 - [jQUery QueryBuilder](http://querybuilder.js.org/)
 
-
-## TODO
-- [x] create new table
-- [x] delete table
-- [x] add item in table
-- [x] edit item in table
-- [x] delete item in table
-- [ ] ~~hyper links for quick cell filtering~~
-- [x] advanced searching (http://querybuilder.js.org/)
-- [x] revert history
-- [ ] edit table (fields, name)
-- [x] batch add
-- [ ] batch edit
-- [x] batch delete
-
-
 ## Database setup
 
 - database must be `utf8`

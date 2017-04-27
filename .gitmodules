@@ -4,3 +4,6 @@
 [submodule "moment"]
 	path = moment
 	url = https://github.com/moment/moment.git
+[submodule "bootstrap-slider"]
+	path = bootstrap-slider
+	url = https://github.com/seiyria/bootstrap-slider.git

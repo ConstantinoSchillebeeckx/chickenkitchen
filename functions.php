@@ -512,11 +512,23 @@ function add_item_to_db( $ajax_data ) {
         return json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
     }
 
+    // remove empty values from dat
+    // since we don't need to do anything with them
+    foreach ($dat as $field => $field_val) {
+        if ($field_val === '') unset($dat[$field]);
+    }
+
+    // ensure something was setnt
+    if (!count($dat)) {
+        return json_encode(array("msg" => "You must provide data for at least one of the table's fields.", "status" => false, "hide" => false ));
+    }
+
     // validate row
     $validate = validate_row( $dat, $table );
     if ($validate !== true ) {
         return $validate;
     }
+
 
     
     // generate SQL for data
@@ -2007,7 +2019,7 @@ function add_table_to_db( $ajax_data ) {
         refresh_db_setup(); // update DB class
 
         if ( DEBUG ) {
-            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, 'log'=>json_encode($comment) ));
+            return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true, 'log'=>json_encode($bindings) ));
         } else {
             return json_encode(array("msg" => "Table <a href='/chickenkitchen/?table=$table'>$table</a> properly generated!", "status" => true, "hide" => true ));
         }
@@ -2031,13 +2043,13 @@ function add_table_to_db( $ajax_data ) {
 
 
 /*
- * Will check whether the given data is valide in order
+ * Will check whether the given data is valid in order
  * to create a column in a table by validating:
  * - name length
  * - name uniqueness
  * - name characters used
  *
- * If field name is valide, function will generate all
+ * If field name is valid, function will generate all
  * the SQL parts needed to create the field
  *
  * @params
@@ -2137,6 +2149,7 @@ function validate_field($db, $dat, $fields) {
         } else {
             $bindings["default$i"] = $field_default;
             $sql_str .= " DEFAULT :default$i"; // binding
+            $history_field .= " DEFAULT :default$i"; // binding
         }
     }
 
@@ -2147,9 +2160,10 @@ function validate_field($db, $dat, $fields) {
     $comment['description'] = $field_description;
     $bindings["comment$i"] = json_encode($comment);
     $sql_str .= " COMMENT :comment$i";
+    $history_field .= " COMMENT :comment$i";
 
     // add index if not long string and not unique
-    if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", ADD INDEX `%s_IX` (`$field_name`)", $field_name);
+    if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX` (`$field_name`)", $field_name);
 
     // if FK type was requested, add the constraint
     if ($is_fk) {
@@ -2257,7 +2271,7 @@ function bind_pdo($bindings, $stmt) {
                 $field_val = intval( $field_val );
                 $pdo_type = PDO::PARAM_INT;
             }
-         
+            
             $stmt->bindValue(":$field_name", $field_val, $pdo_type);
         }
     }
