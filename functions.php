@@ -256,6 +256,9 @@ function get_form_table_row($table) {
             $field_name .= '*';
             $hasRequired = true;
         }
+
+        $field_default = $field_class->get_default();
+        ($field_default) ? $default = "value='$field_default'" : $default = '';
     
         if ($comment['column_format'] != 'hidden') {
             if ( preg_match('/float|int/', $field_type) ) {
@@ -277,11 +280,11 @@ function get_form_table_row($table) {
                     get_fks_as_select($field_class);
                 } else {
                     if ( in_array( $field_class->get_type(), array('datetime', 'date') ) && $field_class->get_default() ) {
-                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' disabled></input><small class='text-muted'>Field has been disabled since it populates automatically</small>";
+                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' $default disabled></input><small class='text-muted'>Field has been disabled since it populates automatically</small>";
                     } elseif ($field_class->is_required()) {
-                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' required>";
+                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' $default required>";
                     } else {
-                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control'>";
+                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' $default>";
                     }
                 } 
                 echo '</div>';
