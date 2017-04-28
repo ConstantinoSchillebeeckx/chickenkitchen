@@ -1,6 +1,9 @@
-<?php if (session_status() == PHP_SESSION_NONE) session_start(); ?>
-<?php require_once "functions.php"; ?>
-<?php setup_session(); ?>
+<?php 
+require_once "db.class.php"; // Database class
+if (session_status() == PHP_SESSION_NONE) session_start();
+require_once 'functions.php';
+setup_session();
+?>
 <?php
 
     // script to handle AJAX requests from front end

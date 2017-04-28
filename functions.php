@@ -51,11 +51,16 @@ function get_db_setup() {
     require_once "db.class.php"; // Database class
 
 
+    // only load DB if it hasn't already been loaded - this prevents reloading
+    // the entire DB on every page view
+    // use refresh_db_setup() to force an update
     if ( !isset( $_SESSION['db'] ) || !is_a( $_SESSION['db'], 'Database' ) ) {
 
         // Get setup
         $setup = new Database( ACCT, get_db_conn() );
-        
+
+        var_dump('here');
+
         $_SESSION['db'] = $setup;
 
     }
@@ -2629,6 +2634,16 @@ function setup_session() {
     }
 
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<?php require_once "config/db.php"; ?>
+<?php 
+require_once "config/db.php";
+?>
 
 <html lang="en"> 
 
     <head>
+
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="chicken kitchen">
@@ -30,7 +33,6 @@
         <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery.query-builder/2.4.1/js/query-builder.standalone.min.js"></script>
         <!-- <script src="bootstrap-slider/src/js/bootstrap-slider.js" crossorigin="anonymous"></script> -->
         <script type="text/javascript">var DEBUG = <?php echo DEBUG; ?></script>
-
     </head>
 
 
