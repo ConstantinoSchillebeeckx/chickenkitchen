@@ -10,3 +10,11 @@
 html {
     overflow-y: scroll !important; /* forces vertical scrollbar  */
 }
+
+.error-container {
+    margin: 0 5px 0 5px !important;
+}
+
+.rule-value-container input {
+    padding: 6px 12px !important;
+}

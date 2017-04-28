@@ -38,7 +38,19 @@ and options for the query builder.
 
     // build the query builder
     jQuery('#query-builder').queryBuilder({
-        filters: filters
+        filters: filters,
+        icons: {error: 'fa fa-exclamation-triangle'},
+    });
+
+    // need to manually setup on change trigger
+    // see: https://github.com/mistic100/jQuery-QueryBuilder/issues/176
+    $('#query-builder').on('afterCreateRuleInput.queryBuilder', function(e, rule) {
+        if (rule.filter.plugin === 'datetimepicker') {
+            var $input = rule.$el.find('.rule-value-container [name*=_value_]');
+            $input.on('dp.change', function () {
+                $input.trigger('change');
+            });
+        }
     });
 
     jQuery('#searchSubmit').on('click', function() {
