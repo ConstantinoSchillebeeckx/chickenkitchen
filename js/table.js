@@ -1341,17 +1341,23 @@ function deleteTable(event, tableName) {
 
 // hide/show divs based on what user selects for field type
 function selectChange(id, fk_ref){
+
     var val = jQuery("#type-" + id).val()
 
     // reset input fields that were automatically set in case of FK
     jQuery("[name^=default-]").prop('disabled',false)
     jQuery("[name^=unique-]").prop('disabled',false)
 
+    // remove class from default field in case switching from date/datetime type
+    jQuery("[name^=default-" + id + "]").removeClass().addClass('form-control');
+
     var hidden = jQuery("#hiddenType-" + id);
     if (val == 'fk') {
         var html = '<p>Please choose a table and field that you\'d like to use as a reference for your foreign key; note that only fields that are set to be unique will be found in this list.</p>';
         html += getFKchoices(id, fk_ref);
     } else if (val == 'date') {
+        jQuery("[name^=default-" + id + "]").addClass('datepicker');
+        setupDatePickers();
         html = '<span>A date field is used for values with a date part but no time part; it is stored in the format <em>YYYY-MM-DD</em> and there fore can only contain numbers and dashes, for example <code>2015-03-24</code>. </span><br>';
         html +='<label class="checkbox-inline"><input type="checkbox" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date at the time of editing.</label>';
     } else if (val == 'varchar') {
@@ -1362,6 +1368,8 @@ function selectChange(id, fk_ref){
     } else if (val == 'float') {
         html = '<p>A float field can only contain numbers as well as a decimal point, for example <code>89.45</code></p>';
     } else if (val == 'datetime') {
+        jQuery("[name^=default-" + id + "]").addClass('datetimepicker');
+        setupDatePickers();
         html = '<span>A date time field is used is used for values that contain both date and time parts, it is stored in the format <em>YYYY-MM-DD HH:MM:SS</em>, for example <code>2023-01-19 03:14:07</code></span><br>';
         html +='<label class="checkbox-inline"><input type="checkbox" name="default-' + id + '" onchange="toggleDate(this)"> check if you want this field automatically filled with the date & time at editing.</label>';
     }
@@ -1491,7 +1499,6 @@ function fillEditTableForm(db) {
             if (type.indexOf('varchar') > -1) { // could be string or FK
                 if (dat.is_fk) { // if field is a foreign key
                     jQuery("select[name='type-" + (count + 1) + "']").val('fk');
-                    selectChange(count + 1, dat.fk_ref); // manually fire with proper FK ref
                 } else { // if standard string (short or long)
                     jQuery("select[name='type-" + (count + 1) + "']").val('varchar');
                     if (dat.length > 255) { // if long string
@@ -1509,6 +1516,7 @@ function fillEditTableForm(db) {
             }
 
             count++;
+            selectChange(count, dat.fk_ref); // manually fire so that all proper (e.g. type explanation) divs are shown
         }
 
     }
@@ -1520,13 +1528,21 @@ function fillEditTableForm(db) {
  * Setup the datetime picker on page load for
  * any input with datetimepicker as its class
  *
- * This is used on the query builder as well
+ * This is used in the add-item modal as well
  * as the table form for the default value.
  */
-jQuery(function () {
+function setupDatePickers() {
     jQuery('input.datetimepicker').datetimepicker({
         format: "YYYY-MM-DD HH:mm:ss",
     });
+    jQuery('input.datepicker').datetimepicker({
+        format: "YYYY-MM-DD",
+    });
+}
+
+
+jQuery(function () {
+    setupDatePickers();
 });
 
 

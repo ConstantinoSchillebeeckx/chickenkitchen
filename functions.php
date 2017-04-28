@@ -269,10 +269,11 @@ function get_form_table_row($table) {
             if ( preg_match('/float|int/', $field_type) ) {
                 $type = "type='number'";
             } elseif ( $field_type == 'date') {
-                $type = "type='text' data-provide='datepicker'"; // assumes bootstrap datepicker has been loaded!
+                $type = "type='text'";
+                $class = "class='form-control datepicker'"; // extra class will setup the date picker (see js/table.js)
             } elseif ( $field_type == 'datetime') {
                 $type = "type='text'";
-                $class = "class='form-control datetimepicker'";
+                $class = "class='form-control datetimepicker'"; // extra class will setup the date picker (see js/table.js) 
             } else {
                 $type = "type='text'";
                 $type = 'text';
