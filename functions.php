@@ -59,8 +59,6 @@ function get_db_setup() {
         // Get setup
         $setup = new Database( ACCT, get_db_conn() );
 
-        var_dump('here');
-
         $_SESSION['db'] = $setup;
 
     }
@@ -250,10 +248,13 @@ function list_tables() {
 */
 function get_form_table_row($table) {
 
+    if (!isset($table)) return;
+
     $db = get_db_setup();
     $table_class = $db->get_table($table);
     $fields = $table_class->get_fields();
     $hasRequired = false;
+
     forEach($fields as $field) {
         $id = "id='$field'";
         $name = "name='$field'";

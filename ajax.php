@@ -3,6 +3,7 @@ require_once "db.class.php"; // Database class
 if (session_status() == PHP_SESSION_NONE) session_start();
 require_once 'functions.php';
 setup_session();
+require_once 'header.php'; // hacky way of loading things with WP
 ?>
 <?php
 
