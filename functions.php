@@ -193,6 +193,8 @@ function list_tables() {
     $db = get_db_setup();
     $tables = $db->get_data_tables();
 
+    //var_dump($db->get_field('tmp','date')->get_type());
+
     echo '<div class="col-sm-12">';
 
     if ( $tables ) {
@@ -248,12 +250,15 @@ function get_form_table_row($table) {
     $fields = $table_class->get_fields();
     $hasRequired = false;
     forEach($fields as $field) {
+        $id = "id='$field'";
+        $name = "name='$field'";
+        $class = "class='form-control'";
         $field_class = $db->get_field($table, $field);
         $field_type = $field_class->get_type();
         $comment = $field_class->get_comment();
-        $field_name = $comment['name'];
+        $place_holder = "placeholder='" . $comment['name'] . "'";
         if ($field_class->is_required()) {
-            $field_name .= '*';
+            $place_holder = "placeholder='" . $comment['name'] . "*'";
             $hasRequired = true;
         }
 
@@ -262,12 +267,14 @@ function get_form_table_row($table) {
     
         if ($comment['column_format'] != 'hidden') {
             if ( preg_match('/float|int/', $field_type) ) {
-                $type = 'number';
+                $type = "type='number'";
             } elseif ( $field_type == 'date') {
-                $type = 'date';
+                $type = "type='text' data-provide='datepicker'"; // assumes bootstrap datepicker has been loaded!
             } elseif ( $field_type == 'datetime') {
-                $type = 'datetime';
+                $type = "type='text'";
+                $class = "class='form-control datetimepicker'";
             } else {
+                $type = "type='text'";
                 $type = 'text';
             }
             ?>
@@ -280,11 +287,11 @@ function get_form_table_row($table) {
                     get_fks_as_select($field_class);
                 } else {
                     if ( in_array( $field_class->get_type(), array('datetime', 'date') ) && $field_class->get_default() ) {
-                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' $default disabled></input><small class='text-muted'>Field has been disabled since it populates automatically</small>";
+                        echo "<input $type $id $name $place_holder $class $default disabled></input><small class='text-muted'>Field has been disabled since it populates automatically</small>";
                     } elseif ($field_class->is_required()) {
-                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' $default required>";
+                        echo "<input $type $id $name $place_holder $class $default required>";
                     } else {
-                        echo "<input type='$type' id='$field' name='$field' placeholder='$field_name' class='form-control' $default>";
+                        echo "<input $type $id $name $place_holder $class $default>";
                     }
                 } 
                 echo '</div>';
@@ -1302,6 +1309,7 @@ function save_table( $ajax_data ) {
 
             // check new data against original
             if ($original_dat != null) {
+                $original_type = explode('(',$original_dat['type'])[0]; // remove size (e.g. varchar(255))
 
                 // field name
                 if ($new_name !== $original_dat['comment']['name']) {
@@ -1346,6 +1354,8 @@ function save_table( $ajax_data ) {
                 } else if ($original_fk === true && $new_type != 'fk') {
                     $changes['fk'][$original_name] = false; // fk removed
                     if ($original_str !== $update_str) $changes['type'][$original_name] = $new_type; // only make changes to type if previously not an str
+                } else if ($original_type !== $new_type) {
+                    $changes['type'][$original_name] = $new_type;
                 }
 
 
@@ -1449,6 +1459,7 @@ function save_table( $ajax_data ) {
         }
     }
 
+    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, "orig"=>$original_str, "new_cols"=>[$new_sql_fields, $new_fields] ));
 
     // if we get this far, table is ok to change
     // construct SQL for changes to table
@@ -1483,6 +1494,8 @@ function save_table( $ajax_data ) {
                     $to_update = true;
                     $name_change = $name_safe;
                     $i++;
+                    $index_parts[] = "DROP INDEX `" . $original_data[$field]['name'] . "_IX`";
+                    $index_parts[] = "ADD INDEX `$name_safe" . "_IX` (`$name_safe` ASC)";
                 } else if ($change == 'default') {
                     $sql_tmp .= "DEFAULT :default ";
                     $bindings["default"] = $change_val;
@@ -1500,17 +1513,11 @@ function save_table( $ajax_data ) {
                     if ($change_val == 'varchar') {
                         $change_len = $changes['length'][$field];
                         $change_val .= "($change_len)";
-                        $to_update = true;
-                        $i++;
-                        $sql_tmp .= "$change_val ";
-                        $sql_tmp_history .= "$change_val ";
-                    } else if ($change_val == 'date') {
-                        $comment['column_format'] = 'date';
-                        $to_update = true;
-                        $i++;
-                        $sql_tmp .= "$change_val ";
-                        $sql_tmp_history .= "$change_val ";
                     }
+                    $to_update = true;
+                    $i++;
+                    $sql_tmp .= "$change_val ";
+                    $sql_tmp_history .= "$change_val ";
                 } else if ($change == 'fk') {
                     if ($change_val === false) { // removing fk
                         $ref_parts = explode('.', $original_data[$field]['fk_ref']);
@@ -1621,7 +1628,7 @@ function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no
 
     // if editing indexes
     if ($index_parts !== null && count($index_parts) > 0) {
-        $sql_table .= "ALTER TABLE `$original_table` " . implode(', ', $index_parts);
+        $sql_table .= "ALTER TABLE `$original_table` " . implode(', ', $index_parts) . "; ";
     }
 
     // if renaming table, do it last
@@ -2059,6 +2066,8 @@ function add_table_to_db( $ajax_data ) {
  * (assoc arr) $dat - form data for field setup with keys
  *  like name, type, description, etc
  * (arr) $fields - already validated fields
+ * (bool) $existing_table - true if validating fields when adding them
+ *     to an existing table (adjusts the syntax for an index)
  *
  * @returns
  * (arr) [$sql_str, $history_field, $bindings, $fields]
@@ -2067,7 +2076,7 @@ function add_table_to_db( $ajax_data ) {
  * $bindings - PDO bindings for field
  * $fields - list of validated fields
 */
-function validate_field($db, $dat, $fields) {
+function validate_field($db, $dat, $fields, $existing_table = false) {
 
     $bindings = []; // PDO bindings for default values
     $i = count($fields) + 1;
@@ -2101,15 +2110,8 @@ function validate_field($db, $dat, $fields) {
     }
     $fields[] = $field_name;
 
-    // date field (as opposed to datetime) 
-    // type cannot have default current_date (per SQL),
-    // so we change the type to timestamp
-    // and leave a note in the comment field
     $is_fk = false;
-    if ( $field_type == 'date' ) {
-        $field_type = 'datetime';
-        $comment['column_format'] = 'date';
-    } elseif ($field_type == 'fk') { // if FK, set type the same as reference
+    if ($field_type == 'fk') { // if FK, set type the same as reference
         $field_default = false; // foreign key cannot have a default value
         $is_fk = true;
         $fk = explode('.', $dat['foreignKey']); // table_name.col of foreign key
@@ -2166,7 +2168,13 @@ function validate_field($db, $dat, $fields) {
     $history_field .= " COMMENT :comment$i";
 
     // add index if not long string and not unique
-    if ( $field_long_string == false && $field_unique == false ) $sql_str .= sprintf(", INDEX `%s_IX` (`$field_name`)", $field_name);
+    if ( $field_long_string == false && $field_unique == false ) {
+        if ($existing_table) {
+            $sql_str .= sprintf(", ADD INDEX `%s_IX` (`$field_name`)", $field_name);
+        } else {
+            $sql_str .= sprintf(", INDEX `%s_IX` (`$field_name`)", $field_name);
+        }
+    }
 
     // if FK type was requested, add the constraint
     if ($is_fk) {

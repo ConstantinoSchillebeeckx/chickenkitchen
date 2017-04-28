@@ -600,11 +600,9 @@ function setup_query_builder_filter( db, fk_vals ) {
             if (type.indexOf('varchar') !== -1) {
                 type = 'string';
             } else if (type.indexOf('datetime') !== -1) {
-                if (field_dat.comment.column_format == 'date') { // date type also stored as datetime on backend
-                    type = 'date';
-                } else {
-                    type = 'datetime';
-                }
+                type = 'datetime';
+            } else if (type.indexOf('date') !== -1) {
+                type = 'date';
             } else if (type.indexOf('float') !== -1) {
                 type = 'double';
             } else if (type.indexOf('int') !== -1) {
@@ -641,16 +639,18 @@ function setup_query_builder_filter( db, fk_vals ) {
             } else if (tmp.type == 'date' || tmp.type == 'datetime') {
                 tmp.operators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'not_between', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty'];
                 tmp.validation = {format: 'YYYY-MM-DD'};
-                tmp.plugin = 'datepicker';
-                tmp.plugin_config = {format: 'yyyy-mm-dd', todayBtn: 'linked', todayHighlight: true, autoclose: true};
+                tmp.plugin = 'datetimepicker';
+                if (tmp.type == 'date') {
+                    tmp.plugin_config = {format: 'YYYY-MM-DD'};
+                } else {
+                    tmp.plugin_config = {format: 'YYYY-MM-DD HH:mm:ss'};
+                }
             }
 
             filters.push(tmp);
         }
 
     }
-
-    console.log(filters)
 
     return filters;
 }
@@ -1503,11 +1503,9 @@ function fillEditTableForm(db) {
             } else if (type === 'float') {
                 jQuery("select[name='type-" + (count + 1) + "']").val('float');
             } else if (type === 'datetime') {
-                if (dat.comment.column_format === 'date') {
-                    jQuery("select[name='type-" + (count + 1) + "']").val('date');
-                } else {
-                    jQuery("select[name='type-" + (count + 1) + "']").val('datetime');
-                }
+                jQuery("select[name='type-" + (count + 1) + "']").val('datetime');
+            } else if (type === 'date') {
+                jQuery("select[name='type-" + (count + 1) + "']").val('date');
             }
 
             count++;
@@ -1518,9 +1516,18 @@ function fillEditTableForm(db) {
 }
 
 
-
-
-
+/*
+ * Setup the datetime picker on page load for
+ * any input with datetimepicker as its class
+ *
+ * This is used on the query builder as well
+ * as the table form for the default value.
+ */
+jQuery(function () {
+    jQuery('input.datetimepicker').datetimepicker({
+        format: "YYYY-MM-DD HH:mm:ss",
+    });
+});
 
 
 

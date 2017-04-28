@@ -656,11 +656,11 @@ class Field {
 
     public function __construct($table, $name, $fks, $info, $db) {
         $this->name = $name;
-        $this->type = $info[$name]["Type"];
         $this->key = $info[$name]["Key"];
         $this->default = $info[$name]["Default"];
         $this->extra = $info[$name]["Extra"];
         $this->comment = json_decode($info[$name]["Comment"], true);
+        $this->type = $info[$name]["Type"];
         $this->table = $table;
         $this->length = $this->get_length();
         $this->unique = $this->is_unique();
