@@ -57,9 +57,7 @@ function get_db_setup() {
     if ( !isset( $_SESSION['db'] ) || !is_a( $_SESSION['db'], 'Database' ) ) {
 
         // Get setup
-        $setup = new Database( ACCT, get_db_conn() );
-
-        $_SESSION['db'] = $setup;
+        $_SESSION['db'] = new Database( $_SESSION['account'], get_db_conn() );
 
     }
 
@@ -195,8 +193,7 @@ function list_tables() {
 
     $db = get_db_setup();
     $tables = $db->get_data_tables();
-
-    //var_dump($db->get_field('tmp','date')->get_type());
+    $account = $_SESSION['account'];
 
     echo '<div class="col-sm-12">';
 
@@ -209,6 +206,8 @@ function list_tables() {
         }
 
         echo '</ul>';
+    } else if (!isset($account)) {
+        echo "Please ensure this user has the metadata for <code>account</code> set.";
     } else {
         echo "No tables present in database.";
     }
@@ -2605,7 +2604,13 @@ function batch_form( $table ) { ?>
 
 /**
  * Function ensures all extra data needed is present in $_SESSION
- * including the user name and the user role.
+ *
+ * Various session settings need to be present to validate the user
+ * and the account this user is associated with including:
+ * - user_name: name of user
+ * - user_role: role of logged in user, see: https://github.com/ConstantinoSchillebeeckx/chickenkitchen/issues/12
+ * - user_account: the 'company' for the user - this limits which databases
+ *  the user has access to
  *
  * @param: void
  *
@@ -2618,10 +2623,14 @@ function setup_session() {
     if (function_exists(wp_get_current_user)) { // if wordpress exists
         $user = wp_get_current_user();
         $user_dat = get_userdata($user->ID);
+        $user_acct = get_user_meta($user->ID, 'account', True);
         $user_roles = $user_dat->roles; // this is an array of roles
 
         $role_check = array('administrator', 'contributor', 'editor', 'author', 'subscriber');
+        $_SESSION['user_role'] = false;
 
+        // check if user role matches list of acceptable ones
+        // if so, set it
         foreach ($role_check as $role) {
             if (in_array($role, $user_roles)) {
                 $_SESSION['user_role'] = $role;
@@ -2629,9 +2638,11 @@ function setup_session() {
         }
 
         $_SESSION['user_name'] = $user->ID;
-    } else {
+        $_SESSION['account'] = ($user_acct != '') ? $user_acct : false;
+    } else { // load generic dev settings for account
         $_SESSION['user_role'] = USER_ROLE;
         $_SESSION['user_name'] = USER_NAME;
+        $_SESSION['account'] = ACCT;
     }
 
 }

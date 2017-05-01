@@ -19,7 +19,8 @@ Class properties:
 - struct : associative array where each table is a key and
            the value is a class Table
 - name : name of database e.g. db215537_EL
-- company : company associated with logged in user
+- company : company (account) associated with logged in user
+   if none is provided, an empty Database class is returned
 
 TODO
 */
