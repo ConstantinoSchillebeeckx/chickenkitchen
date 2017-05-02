@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Script that receives AJAX request for querying database   
  *
@@ -19,6 +18,7 @@ if ( isset($_GET['table'] ) ) {
     // DB table to use
     $table = $_GET['table'];
     $primaryKey = $_GET['pk'];
+    $acct = $_GET['acct'];
 
     // Array of database columns which should be read and sent back to DataTables.
     // The `db` parameter represents the column name in the database, while the `dt`
@@ -31,7 +31,7 @@ if ( isset($_GET['table'] ) ) {
             $columns[] = array('db' => $col, 'dt' => $i, 'format' => $format);
         }
          
-        $results = SSP::simple( $_GET, get_db_conn(), $table, $primaryKey, $columns );
+        $results = SSP::simple( $_GET, get_db_conn($acct), $table, $primaryKey, $columns );
 
         echo json_encode( $results );
     }

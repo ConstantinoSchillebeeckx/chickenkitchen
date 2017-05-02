@@ -18,9 +18,7 @@ Class properties:
 - tables : array of tables associated with user's company
 - struct : associative array where each table is a key and
            the value is a class Table
-- name : name of database e.g. db215537_EL
-- company : company (account) associated with logged in user
-   if none is provided, an empty Database class is returned
+- db_name : name of database e.g. db215537_EL
 
 TODO
 */
@@ -28,18 +26,16 @@ class Database {
 
     public $tables = array(); // array of tables associated with user's company
     public $struct = array(); // associative array where each table is a key and the value is a class table()
-    public $name = NULL; // DB name e.g. db215537_EL
-    public $company = NULL; // company associated with logged in user
+    public $db_name = NULL; // DB name e.g. db215537_EL
 
-    public function __construct( $comp=null, $db ) {
+    public function __construct( $db_name=null, $db ) {
 
-        if ($comp && $db) {
+        if ($db_name && $db) {
 
-            $this->company = $comp;
-            $this->name = NAME_DB . $comp;
+            $this->db_name = $db_name;
 
             // get list of tables
-            $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '" . $this->name . "'";
+            $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '" . $this->get_name() . "'";
             $results = $db->query($sql)->fetchAll();
             if ($results !== true) {
                 foreach ($results as $row ) {
@@ -127,14 +123,9 @@ class Database {
         return $this->struct;
     }
 
-    // return name of company for user
-    public function get_company() {
-        return $this->company;
-    }
-
     // return name of DB
     public function get_name() {
-        return $this->name;
+        return $this->db_name;
     }
 
     // return field name that is pk, if it exists
@@ -790,9 +781,9 @@ class Field {
     public function get_unique_vals() {
         if ( $this->is_unique() ) {
 
-            if ( !isset( $db ) ) $db = get_db_conn();
+            if ( !isset( $db ) ) $db = get_db_conn( $_SESSION['db_name'] );
 
-            $sql = sprintf("SELECT DISTINCT(`%s`) FROM `%s`.`%s`", $this->get_name(), NAME_DB . $_SESSION['account'], $this->get_table());
+            $sql = sprintf("SELECT DISTINCT(`%s`) FROM `%s`.`%s`", $this->get_name(), $_SESSION['db_name'], $this->get_table());
             $result = $db->query($sql)->fetchAll();
             $vals = array();
 
@@ -823,12 +814,12 @@ class Field {
     public function get_fks() {
         if ($this->is_fk) {
 
-            if ( !isset( $db ) ) $db = get_db_conn();
+            if ( !isset( $db ) ) $db = get_db_conn( $_SESSION['db_name'] );
 
             $ref = explode('.',$this->fk_ref);
             $ref_table = $ref[0];
             $ref_field = $ref[1];
-            $sql = sprintf( "SELECT DISTINCT(`%s`) from `%s`.`%s` ORDER BY `%s`", $ref_field, NAME_DB . $_SESSION['account'], $ref_table, $ref_field );
+            $sql = sprintf( "SELECT DISTINCT(`%s`) from `%s`.`%s` ORDER BY `%s`", $ref_field, $_SESSION['db_name'], $ref_table, $ref_field );
             $res = $db->query($sql)->fetchAll();
             $vals = array();
 

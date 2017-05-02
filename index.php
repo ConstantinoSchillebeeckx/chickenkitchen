@@ -3,6 +3,7 @@ require_once "db.class.php"; // Database class
 if (session_status() == PHP_SESSION_NONE) session_start();
 require_once 'functions.php';
 setup_session();
+
 /**
  * Front to the WordPress application. This file doesn't do anything, but loads
  * wp-blog-header.php which does and tells WordPress to load the theme.

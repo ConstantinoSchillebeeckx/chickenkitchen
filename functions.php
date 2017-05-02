@@ -4,20 +4,20 @@
  *
  * Initialize a new PDO database connection.
  *
- * @param void
+ * @param $acct (str) - database name to which to connect
  * 
  * @return PDO object
  *
 */
 
-function get_db_conn() {
+function get_db_conn( $acct ) {
     
     require "config/db.php"; // load DB variables
 
     // Initialize connection
     try {
 
-        $dsn = sprintf('mysql:dbname=%s;host=%s;charset=UTF8', NAME_DB . $_SESSION['account'], HOST_DB);
+        $dsn = sprintf('mysql:dbname=%s;host=%s;charset=UTF8', $acct, HOST_DB);
         $conn = new PDO($dsn, USER_DB, PASS_DB);
 
         // set the PDO error mode to silent
@@ -26,7 +26,8 @@ function get_db_conn() {
         return $conn;
 
     } catch(PDOException $e) {
-        echo "Could not connect to DB.";
+        //echo " Could not connect to DB: " . $e->getMessage();
+        echo "Could not connect to DB";
     }
 
 
@@ -50,14 +51,14 @@ function get_db_setup() {
     require_once "config/db.php"; // load DB variables
     require_once "db.class.php"; // Database class
 
-
     // only load DB if it hasn't already been loaded - this prevents reloading
     // the entire DB on every page view
     // use refresh_db_setup() to force an update
     if ( !isset( $_SESSION['db'] ) || !is_a( $_SESSION['db'], 'Database' ) ) {
 
+        //echo "here<br>";
         // Get setup
-        $_SESSION['db'] = new Database( $_SESSION['account'], get_db_conn() );
+        $_SESSION['db'] = new Database( $_SESSION['db_name'], get_db_conn( $_SESSION['db_name'] ) );
 
     }
 
@@ -81,7 +82,7 @@ function get_db_setup() {
 */
 function refresh_db_setup() {
 
-    $_SESSION['db'] = NULL;
+    unset($_SESSION['db']);
     get_db_setup();
 
 }
@@ -115,6 +116,10 @@ function refresh_db_setup() {
 function build_table( $table ) {
 
     $db = get_DB_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     $pk = $db->get_pk($table);
     $table_class = $db->get_table($table);
     $has_history = $db->has_history($table);
@@ -163,7 +168,8 @@ function build_table( $table ) {
             var pk = <?php echo json_encode( $pk ); ?>;
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
-            getDBdata(table, pk, columnFormat, null, null, hasHistory, db); // function will populate table and hidden any columns needed
+            var acct = <?php echo json_encode( $_SESSION['db_name'] ); ?>;
+            getDBdata(table, pk, columnFormat, null, null, hasHistory, acct); // function will populate table and hidden any columns needed
 
             // assumes variables db, and fk_vals exist
             // these are set in table_search.php
@@ -193,10 +199,11 @@ function list_tables() {
 
     $db = get_db_setup();
     $tables = $db->get_data_tables();
-    $account = $_SESSION['account'];
+    $db_name = $_SESSION['db_name'];
+
 
     //var_dump($db);
-    var_dump($account);
+    //var_dump($account);
 
     echo '<div class="col-sm-12">';
 
@@ -205,7 +212,7 @@ function list_tables() {
         echo '<ul>';
 
         foreach( $tables as $table ) {
-            echo "<li><a href='?table=$table'>$table</a></li>";
+            echo "<li><a href='" . VIEW_TABLE_URL_PATH . "?table=$table'>$table</a></li>";
         }
 
         echo '</ul>';
@@ -379,6 +386,10 @@ function get_fks_as_select($field_class) {
 function revert_item( $ajax_data) {
 
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     $table = $ajax_data['table'];
     $uid = $ajax_data['_UID'];
     $db_name = DB_NAME;
@@ -405,7 +416,7 @@ function revert_item( $ajax_data) {
         $sql = "UPDATE $db_name.`$table` a INNER JOIN $db_name.`$table_history` b on a._UID = b._UID_fk SET " . implode(', ', $cols) . " WHERE b._UID = $uid;";
     }
 
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn( $_SESSION['db_name'] );
     $stmt = $db_conn->exec($sql);
 
     if ($stmt === 1) {
@@ -474,7 +485,7 @@ function edit_item_in_db( $ajax_data ) {
 
     // update row
     $bindings = [];
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn( $_SESSION['db_name'] );
     foreach ( $update_dat as $field_name => $field_val ) {
         $bindings[] = "`$field_name`=:" . $field_name;
     }
@@ -526,6 +537,10 @@ function add_item_to_db( $ajax_data ) {
     $pk = $ajax_data['pk'];
     $db = get_db_setup();
 
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
+
     // check that we have everything
     if ( !isset( $table ) || empty( $table) || !isset( $pk ) || empty( $pk ) ) {
         return json_encode(array("msg" => 'There was an error, please try again.', "status" => false, "hide" => false));
@@ -554,7 +569,7 @@ function add_item_to_db( $ajax_data ) {
     $table_cols = implode('`,`', array_keys( $dat ) );
     $table_vals = implode(',:', array_keys( $dat ) );
     $sql = sprintf( "INSERT INTO `%s` (`%s`) VALUES (:%s)", $table, $table_cols, $table_vals);
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn( $_SESSION['db_name'] );
     $stmt_table = bind_pdo( $dat, $db_conn->prepare( $sql ) );
 
     // Execute
@@ -600,6 +615,10 @@ function batch_update_db( $ajax_data, $files ) {
     $type = $ajax_data['batchType'];
     $table = $ajax_data['table'];
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
 
 
     // check that we have everything
@@ -746,7 +765,7 @@ function batch_edit($db, $table, $files) {
         }
         ini_set('auto_detect_line_endings',FALSE);
 
-        $db_conn = get_db_conn();
+        $db_conn = get_db_conn($_SESSION['db_name']);
         $sql = implode('; ', $sql_parts);
         $stmt = bind_pdo( $bind_vals, $db_conn->prepare( $sql ) );
         $status = $stmt->execute();
@@ -809,7 +828,7 @@ function batch_edit($db, $table, $files) {
 */
 function batch_delete($db, $table, $files ) {
 
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn($_SESSION['db_name']);
     $pks = []; // list of pks to delete
     $visible_fields = $db->get_visible_fields( $table );
 
@@ -973,7 +992,7 @@ function batch_add($db, $table, $files ) {
     }
     ini_set('auto_detect_line_endings',FALSE);
 
-    $uid_fk = intval( get_db_conn()->query( "SELECT `auto_increment` FROM INFORMATION_SCHEMA.TABLES WHERE table_name = '$table'" )->fetch()['auto_increment'] ); // UID of last element added, used to increment _UID_fk
+    $uid_fk = intval( get_db_conn($_SESSION['db_name'])->query( "SELECT `auto_increment` FROM INFORMATION_SCHEMA.TABLES WHERE table_name = '$table'" )->fetch()['auto_increment'] ); // UID of last element added, used to increment _UID_fk
 
     // generate SQL for data
     $stmt = bind_pdo_batch( $table, $header, $bind_vals, $bind_labels );
@@ -1100,6 +1119,10 @@ function delete_item_from_db( $ajax_data ) {
 
     // get some vars
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     $_UID = $ajax_data['pk_id'];
     $table = $ajax_data['table'];
     $pk = $ajax_data['pk'];
@@ -1119,7 +1142,7 @@ function delete_item_from_db( $ajax_data ) {
             $fk_field = $child[1];
 
             // get parent value trying to be deleted
-            $id = get_db_conn()->query("SELECT $parent_field FROM $table WHERE `_UID` = '$_UID' limit 1")->fetch()[$parent_field];
+            $id = get_db_conn($_SESSION['db_name'])->query("SELECT $parent_field FROM $table WHERE `_UID` = '$_UID' limit 1")->fetch()[$parent_field];
 
             // check if child table has a pk field equal to $id
             if (table_has_value($child_table, $fk_field, $id)) {
@@ -1132,7 +1155,7 @@ function delete_item_from_db( $ajax_data ) {
 
     // delete item and update history
     $sql = "DELETE FROM `$table` WHERE `_UID` = '$_UID'";
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn($_SESSION['db_name']);
     add_item_to_history_table( $table . "_history", $_SESSION['user_name'], $_UID, "Manually deleted", [], $db_conn );
     $stmt = $db_conn->exec( $sql );
 
@@ -1174,7 +1197,7 @@ Parameters:
 */
 function table_has_value($table_name, $field_name, $id) {
 
-    $result = get_db_conn()->query("SELECT $field_name FROM $table_name WHERE $field_name = '$id'");
+    $result = get_db_conn($_SESSION['db_name'])->query("SELECT $field_name FROM $table_name WHERE $field_name = '$id'");
 
     return $result;
 
@@ -1262,8 +1285,12 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 function save_table( $ajax_data ) {
 
 
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn($_SESSION['db_name']);
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     $original_fields = $ajax_data['fields']; // NOTE: the order of this array is the same order as the data stored in 'dat'
     $dat = $ajax_data['dat'];
     $field_num = intval($ajax_data['field_num']);
@@ -1764,6 +1791,10 @@ function check_field_type_change($db_conn, $table, $field, $type) {
 
     $name_map = ['int' => 'Integer', 'float' => 'Float', 'date' => 'Date', 'datetime' => 'Date & Time'];
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     $table_fields = $db->get_visible_fields($table);
 
     if (!in_array($field, $table_fields))  return true; // if new field, don't need to check type change
@@ -1979,6 +2010,10 @@ function add_table_to_db( $ajax_data ) {
 
     // init
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     $field_num = $ajax_data['field_num'];
     $data = $ajax_data['dat'];
     $fields = []; // list of fields in table
@@ -2028,9 +2063,10 @@ function add_table_to_db( $ajax_data ) {
     $sql_table_history = sprintf("CREATE TABLE `%s_history` (%s, %s, %s, %s, %s, %s)", $table, $_UID, $_UID_fk, $user, $timestamp, $action, implode( ', ', $history_fields ) );
 
     // generate two statements since PDO won't do both as one and error check properly
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn( $_SESSION['db_name'] );
     $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
     $stmt_table_history = bind_pdo( $bindings, $db_conn->prepare( $sql_table_history ) );
+
 
 
     // Execute
@@ -2223,7 +2259,7 @@ function validate_field($db, $dat, $fields, $existing_table = false) {
 */
 function bind_pdo_batch( $table, $header, $bind_vals, $bind_labels, $user=NULL, $action=NULL, $uid_fk=NULL ) {
 
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn( $_SESSION['db_name'] );
 
     if ( isset( $user ) && isset( $action ) && isset( $uid_fk ) ) { // batch history
         $sql = sprintf( "INSERT INTO `%s` (`_UID_fk`, `User`, `Action`, `%s`) VALUES ", $table . '_history', implode( "`,`", $header ));
@@ -2335,6 +2371,10 @@ function bind_pdo($bindings, $stmt) {
 function validate_row( $dat, $table, $edit=False, $visible_fields=False, $required_fields=False, $fk_vals=False, $unique_vals=False, $row_num=False ) {
 
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     if ($visible_fields === False) $visible_fields = $db->get_visible_fields( $table );
     if ($required_fields === False) $required_fields = $db->get_required_fields( $table );
     if ($fk_vals === False) $fk_vals = $db->get_fk_vals( $table );
@@ -2499,6 +2539,10 @@ function validate_name( $name, $names, $type='Table' ) {
 function delete_table_from_db( $table_name ) {
 
     $db = get_db_setup();
+
+    // check for proper database setup
+    if ($db->get_name() === null)  return json_encode(array("msg" => "The database has not been properly setup.", "status" => false, "hide" => false)); 
+
     $data_tables = $db->get_data_tables();
     $table_name_history = $table_name . '_history';
 
@@ -2537,13 +2581,13 @@ function delete_table_from_db( $table_name ) {
 
     // table is safe to delete
     // delete history version first since it has a FK
-    $db_conn = get_db_conn();
+    $db_conn = get_db_conn( $_SESSION['db_name'] );
     $q1 = $db_conn->query("DROP TABLE `$table_name_history`");
     $q2 = $db_conn->query("DROP TABLE `$table_name`");
 
     if ( count( $q1 ) == 1 && count( $q2 ) == 1 ) { // success
+        refresh_db_setup(); // update db
         return json_encode(array("msg" => "The table <code>$table_name</code> was properly deleted.", "status" => true, "hide" => true));
-        refresh_db_setup();
     } else {
         if ( DEBUG ) {
             return json_encode(array("msg" => "An error occurred, please try again", "status" => false, "hide" => false, "q1" => $q1, "q2" => $q2 ));
@@ -2609,11 +2653,10 @@ function batch_form( $table ) { ?>
  * Function ensures all extra data needed is present in $_SESSION
  *
  * Various session settings need to be present to validate the user
- * and the account this user is associated with including:
+ * and the database name this user is associated with including:
  * - user_name: name of user
  * - user_role: role of logged in user, see: https://github.com/ConstantinoSchillebeeckx/chickenkitchen/issues/12
- * - user_account: the 'company' for the user - this limits which databases
- *  the user has access to
+ * - db_name: name of databse the user has access to
  *
  * @param: void
  *
@@ -2626,7 +2669,7 @@ function setup_session() {
     if (function_exists(wp_get_current_user)) { // if wordpress exists
         $user = wp_get_current_user();
         $user_dat = get_userdata($user->ID);
-        $user_acct = get_user_meta($user->ID, 'account', True);
+        $user_acct = get_user_meta($user->ID, 'db_name', True);
         $user_roles = $user_dat->roles; // this is an array of roles
 
         $role_check = array('administrator', 'contributor', 'editor', 'author', 'subscriber');
@@ -2641,11 +2684,11 @@ function setup_session() {
         }
 
         $_SESSION['user_name'] = $user->ID;
-        $_SESSION['account'] = ($user_acct != '') ? $user_acct : false;
+        $_SESSION['db_name'] = ($user_acct != '') ? NAME_DB . $user_acct : false;
     } else { // load generic dev settings for account
         $_SESSION['user_role'] = USER_ROLE;
         $_SESSION['user_name'] = USER_NAME;
-        $_SESSION['account'] = ACCT;
+        $_SESSION['db_name'] = ACCT;
     }
 
 }

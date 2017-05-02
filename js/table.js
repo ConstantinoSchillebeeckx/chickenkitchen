@@ -444,10 +444,11 @@ Parameters (set by build_table()):
 - filter : (optional) filter for table in format {col: val}
 - tableID: (optional) the ID for the table into which to put data, defaults to #datatable
 - hasHistory: (optional) bool if table has history counter part
+- acct (str): database name to which to connect
 */
 
 
-function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, db) {
+function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, acct) {
 
     var colWidth = '40px'; // column width for "Action" column
 
@@ -481,6 +482,7 @@ function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, db) {
         "cols": columnFormat,
         "pk" : pk,
         "filter": filter,
+        "acct": acct,
     }
 
     // setup columnDefs
@@ -501,19 +503,6 @@ function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, db) {
             colDefs[i]['searchable'] = false;
         }
 
-        // set column formatter if needed
-        // only one supported right now is 'date'
-        // TODO - do we want to do this server side?
-/*
-        var colName = columns[i];
-        if (typeof db !== 'undefined') {
-            var colDat = db[colName];
-            var colFormat = colDat['comment']['column_format'];
-            if (typeof colFormat !== 'undefined') {
-                if (colFormat === 'date') colDefs[i]['render'] = function(data, type, full, meta) { return data.split(' ')[0]; } // format sql datetime to date
-            }
-        }
-*/
     }
 
     // set Action column data to empty since we are automatically adding buttons here
@@ -543,7 +532,7 @@ function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, db) {
         "serverSide": true,
         "lengthMenu": [[10, 50, 100, -1], [10, 50, 100, "All"]],
         "ajax": {
-            "url": 'ssp.class.php',
+            "url": '/chickenkitchen/ssp.class.php',
             "data": data,
             "complete": function(d) {
                 if (tableID == '#historyTable') {
@@ -922,7 +911,7 @@ function historyModal(sel) {
 
     // fill table with data
     // vars are defined in modal.php
-    getDBdata(tableHist, pkHist, columnHist, hiddenHist, '#historyTable', false);
+    getDBdata(tableHist, pkHist, columnHist, hiddenHist, '#historyTable', false, acct);
 
 
 }
