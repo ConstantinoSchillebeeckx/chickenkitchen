@@ -33,10 +33,10 @@ class Database {
 
     public function __construct( $comp=null, $db ) {
 
-        if ($comp) {
+        if ($comp && $db) {
 
             $this->company = $comp;
-            $this->name = NAME_DB;
+            $this->name = NAME_DB . $comp;
 
             // get list of tables
             $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '" . $this->name . "'";
@@ -792,7 +792,7 @@ class Field {
 
             if ( !isset( $db ) ) $db = get_db_conn();
 
-            $sql = sprintf("SELECT DISTINCT(`%s`) FROM `%s`.`%s`", $this->get_name(), NAME_DB, $this->get_table());
+            $sql = sprintf("SELECT DISTINCT(`%s`) FROM `%s`.`%s`", $this->get_name(), NAME_DB . $_SESSION['account'], $this->get_table());
             $result = $db->query($sql)->fetchAll();
             $vals = array();
 
@@ -828,7 +828,7 @@ class Field {
             $ref = explode('.',$this->fk_ref);
             $ref_table = $ref[0];
             $ref_field = $ref[1];
-            $sql = sprintf( "SELECT DISTINCT(`%s`) from `%s`.`%s` ORDER BY `%s`", $ref_field, NAME_DB, $ref_table, $ref_field );
+            $sql = sprintf( "SELECT DISTINCT(`%s`) from `%s`.`%s` ORDER BY `%s`", $ref_field, NAME_DB . $_SESSION['account'], $ref_table, $ref_field );
             $res = $db->query($sql)->fetchAll();
             $vals = array();
 

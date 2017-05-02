@@ -1284,7 +1284,7 @@ function addTable( event ) {
         // send data to server
         doAJAX(data, function() {
             showMsg(ajaxResponse);
-            if (DEBUG) console.log(ajaxResponse);
+            //if (DEBUG) console.log(ajaxResponse);
         });
     }
 

@@ -17,7 +17,7 @@ function get_db_conn() {
     // Initialize connection
     try {
 
-        $dsn = sprintf('mysql:dbname=%s;host=%s;charset=UTF8', NAME_DB, HOST_DB);
+        $dsn = sprintf('mysql:dbname=%s;host=%s;charset=UTF8', NAME_DB . $_SESSION['account'], HOST_DB);
         $conn = new PDO($dsn, USER_DB, PASS_DB);
 
         // set the PDO error mode to silent
@@ -26,7 +26,7 @@ function get_db_conn() {
         return $conn;
 
     } catch(PDOException $e) {
-        echo "MySQL connection failed: " . $e->getMessage();
+        echo "Could not connect to DB.";
     }
 
 
@@ -195,6 +195,9 @@ function list_tables() {
     $tables = $db->get_data_tables();
     $account = $_SESSION['account'];
 
+    //var_dump($db);
+    var_dump($account);
+
     echo '<div class="col-sm-12">';
 
     if ( $tables ) {
@@ -209,7 +212,7 @@ function list_tables() {
     } else if (!isset($account)) {
         echo "Please ensure this user has the metadata for <code>account</code> set.";
     } else {
-        echo "No tables present in database.";
+        echo "No tables present in database yet; please <a href='" . ADD_TABLE_URL_PATH . "'>add one</a> first.";
     }
 
     echo '</div>';
