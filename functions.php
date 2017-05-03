@@ -27,7 +27,7 @@ function get_db_conn( $acct ) {
 
     } catch(PDOException $e) {
         //echo " Could not connect to DB: " . $e->getMessage();
-        echo "Could not connect to DB";
+        //echo "Could not connect to DB";
     }
 
 
@@ -56,7 +56,6 @@ function get_db_setup() {
     // use refresh_db_setup() to force an update
     if ( !isset( $_SESSION['db'] ) || !is_a( $_SESSION['db'], 'Database' ) ) {
 
-        //echo "here<br>";
         // Get setup
         $_SESSION['db'] = new Database( $_SESSION['db_name'], get_db_conn( $_SESSION['db_name'] ) );
 
@@ -154,9 +153,9 @@ function build_table( $table ) {
             $field_format[$field] = $comment['column_format'];
 
         }
+        if ($_SESSION['user_role'] !== 'subscriber') echo "<th>Action</th>";
         ?>
 
-        <th>Action</th>
         </tr>
         </thead>
         </table>
@@ -169,6 +168,7 @@ function build_table( $table ) {
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
             var pkHist = <?php echo json_encode( $pk_hist ); ?>;
             var acct = <?php echo json_encode( $_SESSION['db_name'] ); ?>;
+            var user_role = <?php echo json_encode( $_SESSION['user_role'] ); ?>;
             getDBdata(table, pk, columnFormat, null, null, hasHistory, acct); // function will populate table and hidden any columns needed
 
             // assumes variables db, and fk_vals exist
@@ -281,8 +281,10 @@ function get_form_table_row($table) {
         ($field_default) ? $default = "value='$field_default'" : $default = '';
     
         if ($comment['column_format'] != 'hidden') {
-            if ( preg_match('/float|int/', $field_type) ) {
+            if ($field_type == 'int') {
                 $type = "type='number'";
+            } elseif ( $field_type == 'float') {
+                $type = "type='number' step='any'";
             } elseif ( $field_type == 'date') {
                 $type = "type='text'";
                 $class = "class='form-control datepicker'"; // extra class will setup the date picker (see js/table.js)
@@ -464,6 +466,9 @@ function revert_item( $ajax_data) {
 */
 function edit_item_in_db( $ajax_data ) {
 
+    $allowed = array('administrator','editor','contributor');
+    if (!in_array($_SESSION['user_role'],$allowed)) return json_encode(array("msg" => "Only users with the role <code>" . implode('</code> or <code>', $allowed) . "</code> are allowed to edit items in tables.", "status" => false, "hide" => false));
+
     // get some vars
     $pk_id = $ajax_data['pk_id'];
     $table = $ajax_data['table'];
@@ -530,6 +535,9 @@ function edit_item_in_db( $ajax_data ) {
  * @return - error message for use with showMsg()
 */
 function add_item_to_db( $ajax_data ) {
+
+    $allowed = array('administrator','editor','contributor');
+    if (!in_array($_SESSION['user_role'],$allowed)) return json_encode(array("msg" => "Only users with the role <code>" . implode('</code> or <code>', $allowed) . "</code> are allowed to add items to tables.", "status" => false, "hide" => false));
 
     // init
     $table = $ajax_data['table'];
@@ -599,6 +607,9 @@ function add_item_to_db( $ajax_data ) {
 /**
  * Handle AJAX request for batch add/edit/delete
  *
+ * Only the user_role administrator and editor
+ * are allowed to do this.
+ *
  * @params 
  * (assoc arr) $ajax_data with keys:
  *  - (str) table - name of table acting on
@@ -610,6 +621,8 @@ function add_item_to_db( $ajax_data ) {
  *
 */
 function batch_update_db( $ajax_data, $files ) {
+
+    if (!in_array($_SESSION['user_role'],array('administrator','editor'))) return json_encode(array("msg" => "Only users with the role <code>administrator</code> or <code>editor</code> are allowed to add batch tables.", "status" => false, "hide" => false));
 
     // init
     $type = $ajax_data['batchType'];
@@ -1117,6 +1130,10 @@ function getFileDelimiter($file, $checkLines = 2, $delimiters){
 */
 function delete_item_from_db( $ajax_data ) {
 
+
+    $allowed = array('administrator','editor','contributor');
+    if (!in_array($_SESSION['user_role'],$allowed)) return json_encode(array("msg" => "Only users with the role <code>" . implode('</code> or <code>', $allowed) . "</code> are allowed to delete items from tables.", "status" => false, "hide" => false));
+
     // get some vars
     $db = get_db_setup();
 
@@ -1269,7 +1286,10 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 
 
 /**
- * Handle AJAX call for editing a table setup
+ * Handle AJAX call for editing a table setup.
+ *
+ * NOTE: only administrator user_role is allowed
+ * to do this.
  *
  * @param:
  * (assoc arr) $ajax_data - keys
@@ -1284,6 +1304,7 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
 */
 function save_table( $ajax_data ) {
 
+    if ($_SESSION['user_role'] !== 'administrator') return json_encode(array("msg" => "Only users with the <code>administrator</code> role are allowed to add edit tables.", "status" => false, "hide" => false));
 
     $db_conn = get_db_conn($_SESSION['db_name']);
     $db = get_db_setup();
@@ -1994,6 +2015,8 @@ reference to a foreign key on any other field. Indexes
 will have a random 4 character string appended to its
 name to avoid clashing.
 
+Note that only the 'administrator' user_role is allowed
+to execute this function.
 
 Parameters:
 ===========
@@ -2007,6 +2030,8 @@ Parameters:
  * @return - error message for use with showMsg()
 */
 function add_table_to_db( $ajax_data ) {
+
+    if ($_SESSION['user_role'] !== 'administrator') return json_encode(array("msg" => "Only users with the <code>administrator</code> role are allowed to add new tables.", "status" => false, "hide" => false));
 
     // init
     $db = get_db_setup();
@@ -2531,12 +2556,16 @@ function validate_name( $name, $names, $type='Table' ) {
  * Will delete the specified table, both the standard and the
  * history counterpart.
  *
+ * Only administrator user_role can do this.
+ *
  * @param $table_name str - table name to be deleted
  *
  * @return - error message to be used with showMsg()
  * 
 */
 function delete_table_from_db( $table_name ) {
+
+    if ($_SESSION['user_role'] !== 'administrator') return json_encode(array("msg" => "Only users with the <code>administrator</code> role are allowed to remove tables.", "status" => false, "hide" => false));
 
     $db = get_db_setup();
 
@@ -2690,6 +2719,11 @@ function setup_session() {
         $_SESSION['user_name'] = USER_NAME;
         $_SESSION['db_name'] = ACCT;
     }
+
+    
+    // cookie might not have expired, so check if user has access to stored database
+    $db = get_db_setup();
+    if ($_SESSION['db_name'] !== $db->get_name()) unset($_SESSION['db']);
 
 }
 

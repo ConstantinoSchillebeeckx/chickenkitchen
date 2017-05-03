@@ -506,15 +506,16 @@ function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, acct) {
     }
 
     // set Action column data to empty since we are automatically adding buttons here
-    colDefs.push({ // https://datatables.net/examples/ajax/null_data_source.html
-        "targets": -1,
-        "name": 'Action',
-        "data": null,
-        "defaultContent": buttonHTML,
-        "width": colWidth,
-        "orderable": false,
-    });
-
+    if (user_role !== 'subscriber') { 
+        colDefs.push({ // https://datatables.net/examples/ajax/null_data_source.html
+            "targets": -1,
+            "name": 'Action',
+            "data": null,
+            "defaultContent": buttonHTML,
+            "width": colWidth,
+            "orderable": false,
+        });
+    }
 
     // crusty workaround for the issue: https://datatables.net/manual/tech-notes/3
     // first viewing the history modal will initialize the table, looking at the modal
@@ -1146,63 +1147,73 @@ Will add all the necessarry GUI fields for defining a given field
 var fieldNum = 0;
 function addField() {
     fieldNum += 1;
-    var dom = ['<div class="panel panel-default" style="margin-bottom:20px;" id="field-' + fieldNum + '">',
-            '<div class="panel-heading">',
-            '<span class="panel-title">Field #' + fieldNum + '</span>',
-            '<button type="button" onclick="deleteField()" class="close" data-dismiss="alert" data-target="#field-' + fieldNum + '"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>',
-            '</div>',
-            '<div class="panel-body">',
-            '<div class="form-group">',
-            '<label class="col-sm-2 control-label" id="fieldName">Field name*</label>',
-            '<div class="col-sm-3">',
-            '<input type="text" class="form-control" name="name-' + fieldNum + '" required pattern="[a-zA-Z0-9\-_ ]+" title="Letters, numbers, hypens and underscores and spaces only" maxlength="64">',
-            '</div>',
-            '<label class="col-sm-1 control-label">Type*</label>',
-            '<div class="col-sm-2">',
-            '<select class="form-control" onChange="selectChange(' + fieldNum + ')" id="type-' + fieldNum + '" name="type-' + fieldNum + '" required>',
-            '<option value="" disabled selected style="display:none;"></option>',
-            '<option value="varchar">String</option>',
-            '<option value="int">Integer</option>',
-            '<option value="float">Float</option>',
-            '<option value="date">Date</option>',
-            '<option value="datetime">Date & Time</option>',
-            '<option value="fk">Foreign</option>',
-            '</select>',
-            '</div>',
-            '</div>',
-            '<div class="form-group">',
-            '<label class="col-sm-2 control-label" id="fieldDefault">Default value</label>',
-            '<div class="col-sm-3">',
-            '<input type="text" class="form-control" name="default-' + fieldNum + '">',
-            '</div>',
-            '<div class="col-sm-offset-1 col-sm-6" id="hiddenType-' + fieldNum + '">',
-            '</div>',
-            '</div>',
-            '<div class="form-group">',
-            '<label class="col-sm-2 control-label" id="fieldDescription">Description</label>',
-            '<div class="col-sm-3">',
-            '<input type="text" class="form-control" name="description-' + fieldNum + '">',
-            '</div>',
-            '</div>',
-            '<div class="form-group">',
-            '<label class="col-sm-2 control-label" id="fieldRequired">Required</label>',
-            '<div class="col-sm-3">',
-            '<label class="checkbox-inline">',
-            '<input type="checkbox" name="required-' + fieldNum + '"> check if field is required',
-            '</label>',
-            '</div>',
-            '<label class="col-sm-1 control-label" id="fieldUnique">Unique</label>',
-            '<div class="col-sm-3">',
-            '<label class="checkbox-inline">',
-            '<input type="checkbox" name="unique-' + fieldNum + '"> check if field is unique. <b>Note:</b> if you plan on making this field a reference for a foreign key, then this field must be unique.',
-            '</label>',
-            '</div>',
-            '</div>',
-            '</div>',
-            '</div>']
-    jQuery("form").append(dom.join('\n'));
 
-    //window.scrollTo(0,document.body.scrollHeight); // scroll to bottom of page
+    var id = 'field-' + fieldNum;
+    var label = "Field #" + fieldNum;
+
+    // if no fields present, generate parent divs
+    if (fieldNum == 1) {
+        jQuery('form').append('<div class="fieldTabs"></div>');
+        jQuery('.fieldTabs').append('<ul class="nav nav-tabs" role="tablist" id="tabs"></ul>');
+        jQuery('.fieldTabs').append('<div class="tab-content"></div>');
+    }
+
+    var fieldContent = 
+            '<div class="panel-body">' +
+            '<div class="form-group">' +
+            '<label class="col-sm-2 control-label" id="fieldName">Field name*</label>' +
+            '<div class="col-sm-3">' +
+            '<input type="text" class="form-control" name="name-' + fieldNum + '" required pattern="[a-zA-Z0-9\-_ ]+" title="Letters, numbers, hypens and underscores and spaces only" maxlength="64">' +
+            '</div>' +
+            '<label class="col-sm-1 control-label">Type*</label>' +
+            '<div class="col-sm-2">' +
+            '<select class="form-control" onChange="selectChange(' + fieldNum + ')" id="type-' + fieldNum + '" name="type-' + fieldNum + '" required>' +
+            '<option value="" disabled selected style="display:none;"></option>' +
+            '<option value="varchar">String</option>' +
+            '<option value="int">Integer</option>' +
+            '<option value="float">Float</option>' +
+            '<option value="date">Date</option>' +
+            '<option value="datetime">Date & Time</option>' +
+            '<option value="fk">Foreign</option>' +
+            '</select>' +
+            '</div>' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label class="col-sm-2 control-label" id="fieldDefault">Default value</label>' +
+            '<div class="col-sm-3">' +
+            '<input type="text" class="form-control" name="default-' + fieldNum + '">' +
+            '</div>' +
+            '<div class="col-sm-offset-1 col-sm-6" id="hiddenType-' + fieldNum + '">' +
+            '</div>' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label class="col-sm-2 control-label" id="fieldDescription">Description</label>' +
+            '<div class="col-sm-3">' +
+            '<input type="text" class="form-control" name="description-' + fieldNum + '">' +
+            '</div>' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label class="col-sm-2 control-label" id="fieldRequired">Required</label>' +
+            '<div class="col-sm-3">' +
+            '<label class="checkbox-inline">' +
+            '<input type="checkbox" name="required-' + fieldNum + '"> check if field is required' +
+            '</label>' +
+            '</div>' +
+            '<label class="col-sm-1 control-label" id="fieldUnique">Unique</label>' +
+            '<div class="col-sm-3">' +
+            '<label class="checkbox-inline">' +
+            '<input type="checkbox" name="unique-' + fieldNum + '"> check if field is unique. <b>Note:</b> if you plan on making this field a reference for a foreign key, then this field must be unique.' +
+            '</label>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+
+    jQuery('.nav-tabs').append('<li role="presentation"><a href="#' + id + '" aria-controls="profile" role="tab" data-toggle="tab">' + label + '</a></li>');
+    jQuery('.tab-content').append('<div role="tabpanel" class="tab-pane active" id="' + id + '">' + fieldContent + '</div>');
+
+    jQuery('#tabs a:last').tab('show');
+
 }
 
 
