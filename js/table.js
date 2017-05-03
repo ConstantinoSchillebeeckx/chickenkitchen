@@ -1119,34 +1119,14 @@ function deleteTableModal(tableName) {
 
 }
 
-/*
-onclick event handler for closing field box in add/edit table
-
-The global var 'fieldNum' keeps track of the number of fields
-for the new (to be created) table, or the current (while editing)
-table. This var is used to uniquely identify each input field for
-each table field (e.g. default-5 is the default value for field 5).
-
-When editing a table, the fieldNum var should not decrease
-since we need to handle the case where the user deletes a field
-and then adds another. in this case, there could be a collision
-of input field names if we decrease fieldNum.
-
-*/
-function deleteField() {
-
-    // only decrease counter if editing a table
-    if (table == '') fieldNum -= 1;
-
-}
 
 
 /* Function called by "Add field" button on add table template page
 Will add all the necessarry GUI fields for defining a given field
 */
-var fieldNum = 0;
 function addField() {
-    fieldNum += 1;
+
+    fieldNum = jQuery('.nav-tabs li').length + 1; // number of fields after this tab/field has been added
 
     var id = 'field-' + fieldNum;
     var label = "Field #" + fieldNum;
@@ -1209,13 +1189,30 @@ function addField() {
             '</div>' +
             '</div>';
 
-    jQuery('.nav-tabs').append('<li role="presentation"><a href="#' + id + '" aria-controls="profile" role="tab" data-toggle="tab">' + label + '</a></li>');
-    jQuery('.tab-content').append('<div role="tabpanel" class="tab-pane active" id="' + id + '">' + fieldContent + '</div>');
+    jQuery('.nav-tabs').append('<li role="presentation" class="tab-' + fieldNum + '"><a href="#' + id + '" aria-controls="profile" role="tab" data-toggle="tab">' + label + '<span title="Remove field" class="close" onclick="removeField(\'' + fieldNum + '\')">×</span></a></li>');
+    jQuery('.tab-content').append('<div role="tabpanel" class="tab-pane active tab-' + fieldNum + '" id="' + id + '">' + fieldContent + '</div>');
 
     jQuery('#tabs a:last').tab('show');
 
 }
 
+
+/*
+ * Remove the tab with the given field number
+ *
+ * Both the tab <li> and tab content will have
+ * a class of ".tab-XX" where XX is the given id
+ * parameter. This function will do a remove
+ * on that class and will then show the last
+ * available tab.
+ *
+ */
+function removeField(id) {
+
+    jQuery('.tab-' + id).remove(); // remove tab and contet
+    jQuery('#tabs a:last').tab('show'); // show last tab
+
+}
 
 
 
