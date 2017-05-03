@@ -47,7 +47,6 @@
 
 
 
-
 <!-- edit item modal -->
 <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
     <div class="modal-dialog" role="document">
@@ -73,12 +72,6 @@
 
 
 
-
-
-
-
-
-
 <!-- delete item modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
   <div class="modal-dialog" role="document">
@@ -97,21 +90,6 @@
     </div>
   </div>
 </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

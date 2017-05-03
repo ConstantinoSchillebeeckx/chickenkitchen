@@ -1436,7 +1436,7 @@ function save_table( $ajax_data ) {
         } 
     }
 
-    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, "orig"=>$original_str, "upd"=>$update_str, 'fk'=>$original_fk ));
+    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, "orig"=>$original_str, "upd"=>$update_str, 'fk'=>$original_fk, 'new'=>$new_cols ));
 
 
     // ensure something is being updated
@@ -1504,7 +1504,7 @@ function save_table( $ajax_data ) {
         $new_history_fields = []; // column name and type for history table
 
         foreach($new_cols as $col_name => $col_dat) {
-            $check = validate_field($db, $col_dat, $new_fields);
+            $check = validate_field($db, $col_dat, $new_fields, True);
             if (is_array($check)) {
                 $new_sql_fields[] = $check[0];
                 $new_history_fields[] = $check[1];
@@ -1680,7 +1680,7 @@ function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no
 
     // if adding columns
     if (count($new_sql_fields) > 0) {
-        $sql_table .= "ALTER TABLE `$original_table` ADD " . implode(', ADD', $new_sql_fields) . "; ";
+        $sql_table .= "ALTER TABLE `$original_table` ADD COLUMN " . implode(', ADD COLUMN ', $new_sql_fields) . "; ";
     }
 
     // if editing indexes

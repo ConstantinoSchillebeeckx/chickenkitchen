@@ -913,8 +913,6 @@ function historyModal(sel) {
     // fill table with data
     // vars are defined in modal.php
     getDBdata(tableHist, pkHist, columnHist, hiddenHist, '#historyTable', false, acct);
-
-
 }
 
 
@@ -1189,7 +1187,11 @@ function addField() {
             '</div>' +
             '</div>';
 
-    jQuery('.nav-tabs').append('<li role="presentation" class="tab-' + fieldNum + '"><a href="#' + id + '" aria-controls="profile" role="tab" data-toggle="tab">' + label + '<span title="Remove field" class="close" onclick="removeField(\'' + fieldNum + '\')">×</span></a></li>');
+    if (fieldNum == 1) { // don't add the close button to the first tab
+        jQuery('.nav-tabs').append('<li role="presentation" class="tab-' + fieldNum + '"><a href="#' + id + '" aria-controls="profile" role="tab" data-toggle="tab">' + label + '</li>');
+    } else {
+        jQuery('.nav-tabs').append('<li role="presentation" class="tab-' + fieldNum + '"><a href="#' + id + '" aria-controls="profile" role="tab" data-toggle="tab">' + label + '<span title="Remove field" class="close" onclick="removeField(\'' + fieldNum + '\')">×</span></a></li>');
+    }
     jQuery('.tab-content').append('<div role="tabpanel" class="tab-pane active tab-' + fieldNum + '" id="' + id + '">' + fieldContent + '</div>');
 
     jQuery('#tabs a:last').tab('show');
@@ -1198,7 +1200,11 @@ function addField() {
 
 
 /*
- * Remove the tab with the given field number
+ * onclick even handler for closing a tab
+ *
+ * If a table is being edited, this will
+ * show the confirm delete modal. Otherwise
+ * it will simply remove the tab.
  *
  * Both the tab <li> and tab content will have
  * a class of ".tab-XX" where XX is the given id
@@ -1206,11 +1212,31 @@ function addField() {
  * on that class and will then show the last
  * available tab.
  *
+ * @param {int} id - field number to delete
+ *  this will remove all the DOMs with class
+ *  ".tab-id"
+ * @param {bool} showModal - [optional] by
+ *  default, the confirm delete modal should
+ *  always be shown and will only appear
+ *  when editing a table. However after the user
+ *  confirms to delete, this same function can be
+ *  called with this bool set to false so that
+ *  the modal isn't shown again but rather the tab
+ *  is removed.
+ *
  */
-function removeField(id) {
+function removeField(id, showModal=true) {
 
-    jQuery('.tab-' + id).remove(); // remove tab and contet
-    jQuery('#tabs a:last').tab('show'); // show last tab
+    if (typeof table !== 'undefined' && table !== '' && showModal) {
+        jQuery('#deleteFieldModal').modal('toggle'); // show modal
+        jQuery("#confirmDelete").attr("onclick", "removeField('" + id + "',false)");
+    } else {
+        if (fieldNum > 1) { // don't remove the last remaining tab
+            jQuery('.tab-' + id).remove(); // remove tab and contet
+            jQuery('#tabs a:last').tab('show'); // show last tab
+        }
+        if (typeof table !== 'undefined' && table !== '') jQuery('#deleteFieldModal').modal('toggle'); // hide modal
+    }
 
 }
 
