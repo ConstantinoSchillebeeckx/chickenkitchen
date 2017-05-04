@@ -35,11 +35,13 @@ class Database {
             $this->db_name = $db_name;
 
             // get list of tables
-            $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '" . $this->get_name() . "'";
+            $sql = "SELECT TABLE_NAME, TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '" . $this->get_name() . "'";
             $results = $db->query($sql)->fetchAll();
             if ($results !== true) {
+                $comments = array();
                 foreach ($results as $row ) {
                     $this->tables[] = $row["TABLE_NAME"];
+                    $comments[$row["TABLE_NAME"]] = json_decode($row["TABLE_COMMENT"], true);
                 }
 
 
@@ -61,6 +63,7 @@ class Database {
 
                 // generate DB structure
                 foreach ($this->tables as $table) {
+                    $comment = $comments[$table];
                     $is_history = false;
 
                     // figure out if table name is a history counter part
@@ -72,7 +75,7 @@ class Database {
     
                     if ( $table_name_end == 'history' && in_array( $table_name_root, $this->tables )) $is_history = true;
 
-                    $this->struct[$table] = new Table($table, $fks, $db, $is_history);
+                    $this->struct[$table] = new Table($table, $fks, $db, $is_history, $comment);
                 }
             }
         }
@@ -137,6 +140,19 @@ class Database {
         } else {
             return false;
         }
+    }
+
+    // return the given table's description
+    // if none set, will return false
+    public function get_table_descrip($table) {
+        if ( in_array( $table, $this->get_all_tables() ) ) {
+            $tmp = $this->get_table($table);
+            $comment = $tmp->get_comment();
+            if (isset($comment['description'])) {
+                return $comment['description'];
+            }
+        }
+        return false;
     }
 
     // when creating a new table, user may choose
@@ -382,7 +398,7 @@ class Database {
         if ( $table !== False ) {
             return json_encode( get_object_vars( $this->get_table( $table ) ) );
         } else {
-            return json_encode( get_object_vars( $this ) ); // ';' so that JS doesn't complain
+            return json_encode( get_object_vars( $this ) );
         }
     }
 
@@ -433,11 +449,13 @@ class Table {
     public $name = NULL;
     public $is_history = false;
     public $struct = array();
+    public $comment;
     
 
-    public function __construct($name, $fks, $db, $is_history) {
+    public function __construct($name, $fks, $db, $is_history, $comment) {
         $this->name = $name;
         $this->is_history = $is_history;
+        $this->comment = $comment; //json_decode($info[$name]["Comment"], true);
 
         // get list of fields
         $sql = sprintf("SHOW FULL COLUMNS FROM `%s`", $this->name);
@@ -486,6 +504,12 @@ class Table {
     public function get_fields() {
         return $this->fields;
     }
+
+    // return comment attribute
+    public function get_comment() {
+        return $this->comment;
+    }
+
 
     // return array of hidden fields in table
     public function get_hidden_fields() {

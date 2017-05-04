@@ -165,15 +165,16 @@ function getTableSetupForm(sel, table, db) {
 
     var data = {};
 
-    data['table_name'] = {'original':table, 'update':''}; // table is global
+    data['table_name'] = {'original':table, 'update':''}; 
+    data['table_description'] = {'original':table_descrip, 'update':''}; 
 
     var formData = jQuery(sel).serializeArray(); // form data
 
 
     jQuery.each(formData, function() {
         var val = this.value;
-        var ix = this.name.split('-')[1];
-        var dat_name = this.name.split('-')[0];
+        var ix = this.name.split('-')[1]; // field number
+        var dat_name = this.name.split('-')[0]; // field input (name, type, etc)
 
         if (typeof ix !== 'undefined') { // skip table name
 
@@ -199,6 +200,7 @@ function getTableSetupForm(sel, table, db) {
         } else {
 
             if (dat_name == 'table_name') data['table_name']['update'] = val;
+            if (dat_name == 'table_description') data['table_description']['update'] = val;
 
         }
     })
@@ -298,8 +300,11 @@ Will provide all the available field information (type, default, etc)
 for a field through a JS popover. Function used after build_table()
 is called and/or in the modals (add, delete, update item).
 
-Function assumes that any field that requires a popover will have a
+Function assumes that any field that requires a popover has a
 span surrounding it with the id popover-XXX where XXX is the field name.
+
+It also assumes that the popover for the table name title has the
+class .popover-tableNamePopover
 
 Params:
  obj db - database setup with keys as fields and obj as values
@@ -356,14 +361,18 @@ function make_popover_labels( db, fk_vals ) {
                 content += 'Allowable values: <code>' + Object.values(fk_vals) + '</code><br>';
             }
 
-            jQuery(sel).popover({
-                html: true,
-                content: content,
-                trigger: "hover",
-                title: title,
-                container: 'body'
-            });
+        } else if (name === 'tableNamePopover' && table_descrip != '') { // popover for table title
+            var content = table_descrip;
+            var title = table;
         }
+
+        jQuery(sel).popover({
+            html: true,
+            content: content,
+            trigger: "hover",
+            title: title,
+            container: 'body'
+        });
 
     }
 
@@ -1481,6 +1490,9 @@ Returns:
 
 */
 function fillEditTableForm(db) {
+
+    jQuery('#table_name').val(table); // set table name in form
+    jQuery('#table_description').val(table_descrip); // set table name in form
 
     var count = 0;
     for (var i in db.fields) {

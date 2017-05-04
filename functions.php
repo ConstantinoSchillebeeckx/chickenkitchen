@@ -163,6 +163,7 @@ function build_table( $table ) {
         <script type="text/javascript">
             // This will do the AJAX call, func defined in js/table.js
             var table = <?php echo json_encode( $table ); ?>;
+            var table_descrip = <?php echo json_encode( $db->get_table_descrip( $table ) ); ?>;
             var columnFormat = <?php echo json_encode( $field_format ); ?>;
             var pk = <?php echo json_encode( $pk ); ?>;
             var hasHistory = <?php echo json_encode( $has_history ); ?>;
@@ -1292,11 +1293,12 @@ function add_item_to_history_table( $table, $user, $fk, $action, $field_data, $d
  * to do this.
  *
  * @param:
- * (assoc arr) $ajax_data - keys
- *  - dat: assoc arr of new & original setup ( see JS function getTableSetupForm() )
- *  - field_num: number of fields
- *  - fields: original field names
- *  - table: name of table being edited
+ * $ajax_data['dat'] : assoc array of form
+ *    field-XX: {original: null, update: {}}
+ *    table_description: {original: '', update: 'XX'}
+ *    table_name: {original: null, update: 'XX'}
+ *  where update contains the data being added
+ * $ajax_data['field_num'] : number of fields being added
  *
  * @return:
  * json encoded message for use with showMsg()
@@ -1317,6 +1319,7 @@ function save_table( $ajax_data ) {
     $field_num = intval($ajax_data['field_num']);
     $original_table = $dat['table_name']['original'];
     $new_table = $dat['table_name']['update'];
+    $table_comment = $dat['table_description']['update'] !== $dat['table_description']['original'] ? $dat['table_description']['update'] : false; // will be false if no update to table description
 
     // check table name change
     $current_tables = $db->get_data_tables();
@@ -1444,7 +1447,7 @@ function save_table( $ajax_data ) {
     foreach($changes as $key => $val) {
         if (count(array_values($val)) > 0) $no_changes = False;
     }
-    if ($no_changes && count($delete_cols) == 0 && count($new_cols) == 0) {
+    if ($no_changes && count($delete_cols) == 0 && count($new_cols) == 0 && $original_table === $new_table && $dat['table_description']['original'] === $dat['table_description']['update']) {
         return json_encode(array("msg" => 'No changes requested, table has been left unmodified.', "status" => true, "hide" => true));
     }
 
@@ -1621,7 +1624,7 @@ function save_table( $ajax_data ) {
     }
 
 
-    $stmt_table = edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table, $index_parts);
+    $stmt_table = edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table, $index_parts, $table_comment);
 
     //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, 'sql'=>$stmt_table, 'parts'=>$sql_parts, 'delete'=>$delete_cols, 'new'=>$new_sql_fields, 'index'=>$index_parts, 'bind'=>$bindings ));
 
@@ -1629,7 +1632,7 @@ function save_table( $ajax_data ) {
     if ( $stmt_table->execute() !== false ) {
         refresh_db_setup(); // update DB class
 
-        $stmt_table = edit_table_sql($db_conn, $original_table . "_history", $sql_parts_history, $delete_cols, $no_changes, $new_sql_fields, null, $new_table, null);
+        $stmt_table = edit_table_sql($db_conn, $original_table . "_history", $sql_parts_history, $delete_cols, $no_changes, $new_sql_fields, null, $new_table, null, null);
 
         $db_conn->exec($stmt_table);
 
@@ -1664,7 +1667,7 @@ function save_table( $ajax_data ) {
  * 
 */
 
-function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table=NULL, $index_parts=NULL) {
+function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no_changes, $new_sql_fields, $bindings, $new_table=NULL, $index_parts=NULL, $table_comment=false) {
 
     // we lock table and disable foreign key checks so that any changes
     // to a field with a foreign key won't throw an error
@@ -1690,6 +1693,12 @@ function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no
 
     // if renaming table, do it last
     if ($new_table !== $original_table) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
+
+    // if updating table comment
+    if ($table_comment) {
+        $sql_table .= "ALTER TABLE `$original_table` COMMENT = :table_comment; ";
+        $bindings['table_comment'] = "{\"description\": \"" . $table_comment . "\"}";
+    }
 
     $sql_table .= "SET FOREIGN_KEY_CHECKS = 1; UNLOCK TABLES; ";
 
@@ -2020,11 +2029,11 @@ to execute this function.
 
 Parameters:
 ===========
-- $ajax_data['dat'] : obj of form data (key: col name, val: value)
-                 at a minimum will have the following keys:
-                 - table_name (safe name)
-                 - name-1 (field name)
-                 - type-1 (field type)
+- $ajax_data['dat'] : assoc array of form
+    field-XX: {original: null, update: {}}
+    table_description: {original: '', update: 'XX'}
+    table_name: {original: null, update: 'XX'}
+  where update contains the data being added
 - $ajax_data['field_num'] : number of fields being added
 
  * @return - error message for use with showMsg()
@@ -2075,6 +2084,10 @@ function add_table_to_db( $ajax_data ) {
  
     }
 
+    // add info for table description, even if blank
+    $bindings['table_comment'] = "{\"description\": \"" . $data['table_description']['update'] . "\"}";
+
+
     // put together the sql statment
     $_UID = "`_UID` int(11) AUTO_INCREMENT COMMENT '{\"column_format\": \"hidden\"}', PRIMARY KEY (`_UID`)";
     $_UID_fk = "`_UID_fk` int(11) COMMENT '{\"column_format\": \"hidden\"}', INDEX `_UID_fk_IX` (`_UID_fk`)";
@@ -2082,14 +2095,17 @@ function add_table_to_db( $ajax_data ) {
     $timestamp = "`Timestamp` timestamp DEFAULT CURRENT_TIMESTAMP";
     $action = "`Action` varchar(128)";
 
-    $sql_table = sprintf("CREATE TABLE `%s` (%s, %s);", $table, $_UID, implode( ', ', $sql_fields ) );
+    $sql_table = sprintf("CREATE TABLE `%s` (%s, %s) COMMENT = :table_comment;", $table, $_UID, implode( ', ', $sql_fields ));
 
     // we are only interested in field names and types for history table    
     $sql_table_history = sprintf("CREATE TABLE `%s_history` (%s, %s, %s, %s, %s, %s)", $table, $_UID, $_UID_fk, $user, $timestamp, $action, implode( ', ', $history_fields ) );
 
+    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, 'binding'=>$bindings, 'sql_fields'=>$sql_fields, 'history_fields'=>$history_fields, 'sql' => $sql_table)); 
+
     // generate two statements since PDO won't do both as one and error check properly
     $db_conn = get_db_conn( $_SESSION['db_name'] );
     $stmt_table = bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );
+    unset($bindings['table_comment']); // don't need it for history table bindings
     $stmt_table_history = bind_pdo( $bindings, $db_conn->prepare( $sql_table_history ) );
 
 

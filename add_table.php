@@ -96,6 +96,7 @@ echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
 
         // if editing table instead of creating a new one
         table = '<?php echo $_GET['table'] ;?>';
+        table_descrip = '<?php $descrip = get_db_setup()->get_table_descrip($_GET['table']); echo $descrip ? $descrip : null ;?>';
         if (table && table != '') {
 
             // get table structure
@@ -103,7 +104,6 @@ echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
             db = tmp; // global!
             fillEditTableForm(tmp);
 
-            jQuery('#table_name').val(table); // set table name in form
         }
     });
 </script>

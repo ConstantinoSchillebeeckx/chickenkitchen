@@ -35,7 +35,7 @@ library
 <div id="body">
     <div class="row">
         <div class=<?php echo isset($_GET['table']) ? "col-sm-7" : "col-sm-12" ?>>
-            <h1><?php echo isset($_GET['table']) ? "Viewing table <code>" . $_GET['table'] . "</code>" : "View tables" ?></h1>
+            <h1><?php echo isset($_GET['table']) ? "Viewing table <code><span class='popover-tableNamePopover' aria-hidden='true'>" . $_GET['table'] . "</span></code>" : "View tables" ?></h1>
         </div>
         <?php isset($_GET['table']) ? include('table_header.php') : list_tables(); ?>
     </div> 
