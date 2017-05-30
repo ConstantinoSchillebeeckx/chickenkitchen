@@ -2658,7 +2658,7 @@ function delete_table_from_db( $table_name ) {
 */
 function batch_form( $table ) { ?>
 
-    <div> Please choose one of the radio buttons shown below and upload a plain text file that is delimited with one of the following delimiters: comma, tab, colon, semi-colon or bar (|).  </div>
+    <div> Please choose one of the radio buttons shown below and upload a plain text file that includes column headers and that is delimited with one of the following delimiters: comma, tab, colon, semi-colon or bar (|).  </div>
 
     <form class="form-horizontal" onsubmit="return false;" id="batchForm">
         <label class="radio-inline">

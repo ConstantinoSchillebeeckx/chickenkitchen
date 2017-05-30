@@ -620,7 +620,7 @@ class Table {
         if ( count($tmp) > 0 ) {
             return $tmp;
         } else {
-            return false;
+            return array();
         }
     }
 

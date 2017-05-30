@@ -271,7 +271,11 @@ function radioSelect(selectedRadio) {
     jQuery('#confirmEdit').prop('disabled', false);
 
     if (selectedRadio.value == 'batchAdd') {
-        content = 'To add data to this table, please upload a file with atleast the following columns (any others will be ignored): <code>' + required.join('</code>,<code>') + '</code>';
+        if (required.length) {
+            content = 'To add data to this table, please upload a file with at least the following columns (any others will be ignored): <code>' + required.join('</code>,<code>') + '</code>';
+        } else {
+            content = 'To add data to this table, please upload a file with the data to be added.';
+        }
     } else if (selectedRadio.value == 'batchEdit' ) {
         content = '';
         if (pk != '') {
