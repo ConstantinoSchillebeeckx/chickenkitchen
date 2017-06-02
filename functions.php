@@ -905,6 +905,9 @@ function batch_delete($db, $table, $files ) {
     }
     ini_set('auto_detect_line_endings',FALSE);
 
+    // check if any rows to delete
+    if (!count($pks)) return json_encode(array("msg" => "No rows to delete!", "status" => false));
+
     // delete rows with given pks
     $sql = "DELETE FROM `$table` WHERE $pk IN (" . implode(',', array_fill(0, count($pks), '?')) . ")";
     $stmt = $db_conn->prepare($sql);
