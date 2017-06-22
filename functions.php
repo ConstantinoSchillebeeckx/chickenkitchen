@@ -46,7 +46,7 @@ function get_db_conn( $acct ) {
  *
 */
 
-function get_db_setup() {
+function get_db_setup($force=False) {
 
     require_once "config/db.php"; // load DB variables
     require_once "db.class.php"; // Database class
@@ -54,7 +54,7 @@ function get_db_setup() {
     // only load DB if it hasn't already been loaded - this prevents reloading
     // the entire DB on every page view
     // use refresh_db_setup() to force an update
-    if ( !isset( $_SESSION['db'] ) || !is_a( $_SESSION['db'], 'Database' ) ) {
+    if ( !isset( $_SESSION['db'] ) || !is_a( $_SESSION['db'], 'Database' ) || $force ) {
 
         // Get setup
         $_SESSION['db'] = new Database( $_SESSION['db_name'], get_db_conn( $_SESSION['db_name'] ) );
@@ -1442,7 +1442,6 @@ function save_table( $ajax_data ) {
         } 
     }
 
-    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, "orig"=>$original_str, "upd"=>$update_str, 'fk'=>$original_fk, 'new'=>$new_cols ));
 
 
     // ensure something is being updated
@@ -1454,6 +1453,7 @@ function save_table( $ajax_data ) {
         return json_encode(array("msg" => 'No changes requested, table has been left unmodified.', "status" => true, "hide" => true));
     }
 
+    //return json_encode(array("msg" => "!", "status" => false, "hide" => false, "changes"=>$changes, "orig"=>$original_str, "upd"=>$update_str, 'fk'=>$original_fk, 'new'=>$new_cols, 'del'=>$delete_cols ));
 
     // check if required changes are ok
     if (count(array_values($changes['required']))) {
@@ -1635,11 +1635,11 @@ function save_table( $ajax_data ) {
     if ( $stmt_table->execute() !== false ) {
         refresh_db_setup(); // update DB class
 
-        $stmt_table = edit_table_sql($db_conn, $original_table . "_history", $sql_parts_history, $delete_cols, $no_changes, $new_sql_fields, null, $new_table, null, null);
+        $stmt_table = edit_table_sql($db_conn, $original_table . "_history", $sql_parts_history, $delete_cols, $no_changes, $new_sql_fields, null, $new_table . '_history', null, null);
 
         $db_conn->exec($stmt_table);
 
-        return json_encode(array("msg" => "Table properly updated!", "status" => true, "hide" => true, "db"=>get_db_setup()->asJSON( $new_table ) ));
+        return json_encode(array("msg" => "Table properly updated!", "status" => true, "hide" => true, "db"=>get_db_setup( True )->asJSON( $new_table ) ));
 
     } else { // if error
 
@@ -1694,8 +1694,6 @@ function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no
         $sql_table .= "ALTER TABLE `$original_table` " . implode(', ', $index_parts) . "; ";
     }
 
-    // if renaming table, do it last
-    if ($new_table !== $original_table) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
 
     // if updating table comment
     if ($table_comment) {
@@ -1704,6 +1702,9 @@ function edit_table_sql($db_conn, $original_table, $sql_parts, $delete_cols, $no
     }
 
     $sql_table .= "SET FOREIGN_KEY_CHECKS = 1; UNLOCK TABLES; ";
+
+    // if renaming table, do it last, table cannot be locked
+    if ($new_table !== $original_table) $sql_table .= " RENAME TABLE `$original_table` TO `$new_table`; ";
 
     if ($bindings !== null) {
         return bind_pdo( $bindings, $db_conn->prepare( $sql_table ) );

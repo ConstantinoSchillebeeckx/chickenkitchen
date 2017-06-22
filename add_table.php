@@ -100,9 +100,8 @@ echo isset($_GET['table']) ? "<h1>Edit table</h1>" : '<h1>Add new table</h1>';
         if (table && table != '') {
 
             // get table structure
-            var tmp = <?php echo isset($_GET['table']) ? get_db_setup()->asJSON( $_GET['table'] ) : '""'; ?>;
-            db = tmp; // global!
-            fillEditTableForm(tmp);
+            db = <?php echo isset($_GET['table']) ? get_db_setup()->asJSON( $_GET['table'] ) : '""'; ?>; // global
+            fillEditTableForm(db);
 
         }
     });

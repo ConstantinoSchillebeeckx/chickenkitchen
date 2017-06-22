@@ -498,6 +498,7 @@ function getDBdata(table, pk, columnFormat, filter, tableID, hasHistory, acct) {
         "acct": acct,
     }
 
+
     // setup columnDefs
     var colDefs = [];
     for (var i = 0; i < Object.keys(columnFormat).length; i++) {
@@ -1267,6 +1268,9 @@ function saveTable( event ) {
     event.preventDefault(); // cancel form submission
     jQuery('#submit_handle').click(); // needed to validate form
 
+    // get table name of currently loaded db
+    table = db.name; 
+
     // remove hidden _UID from field list
     var visibleFields = db.fields;
     if (visibleFields.indexOf('_UID') > -1) visibleFields.splice(visibleFields.indexOf('_UID'), 1);
@@ -1286,7 +1290,15 @@ function saveTable( event ) {
             showMsg(ajaxResponse);
 
             // update global var db with new DB setup
-            if ('db' in ajaxResponse) db = JSON.parse(ajaxResponse.db)
+            if ('db' in ajaxResponse) {
+                db = JSON.parse(ajaxResponse.db);
+            
+                // update URL in case table name was changed
+                if (table != db.name) {
+                    var url = window.location.href.split('table=');
+                    window.history.pushState({}, null, url[0] + 'table=' + db.name);
+                }
+            }
 
             if (DEBUG) console.log(ajaxResponse);
         });

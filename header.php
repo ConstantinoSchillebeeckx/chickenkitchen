@@ -26,7 +26,7 @@ require_once "config/db.php";
         <script type="text/javascript" src="https://cdn.datatables.net/v/bs/pdfmake-0.1.18/dt-1.10.13/b-1.2.4/b-colvis-1.2.4/b-html5-1.2.4/b-print-1.2.4/r-2.1.0/datatables.min.js"></script> 
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
         <script type="text/javascript" src="http://www.meepmoop.com/chickenkitchen/js/table.js"></script>
-        <script type="text/javascript" src="http://www.meepmoop.com/chickenkitchen/meowcow/js/plugin.js"></script>
+        <script type="text/javascript" src="http://www.meepmoop.com/chickenkitchen/meowcow/js/plugin.js"></script> <!-- this will render the chart plot button -->
         <script type="text/javascript" src="http://www.meepmoop.com/chickenkitchen/TableCSVExport/jquery.TableCSVExport.js"></script>
         <script type="text/javascript" src="http://www.meepmoop.com/chickenkitchen/moment/moment.js"></script>
         <script type="text/javascript" src="http://www.meepmoop.com/chickenkitchen/bootstrap-datetimepicker/build/js/bootstrap-datetimepicker.min.js"></script>
