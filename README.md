@@ -2,6 +2,12 @@
 
 A simplified CRUD front-end with built in visualization features.
 
+After not working on this for a long time, I'm doing some house cleaning and coming back to this - I'm trying to figure out how this is generally setup.
+
+It looks like it assumes its running in Wordpress which handles the [user login validation](https://github.com/ConstantinoSchillebeeckx/chickenkitchen/blob/master/functions.php#L2714) - I probably did this out of laziness since I didn't really want to do account validation.
+
+It has the the pages */add-table* and */view-table*.
+
 ## Built on
 
 - [datatables.net](https://datatables.net/)
